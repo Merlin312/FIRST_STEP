@@ -7,12 +7,11 @@ import { AnswerButton } from '@/components/answer-button';
 import { DrawerPanel } from '@/components/drawer-panel';
 import { ThemedText } from '@/components/themed-text';
 import { useAppTheme } from '@/contexts/theme-context';
+import { useStatsContext } from '@/contexts/stats-context';
 import { Blue, Colors } from '@/constants/theme';
-import { useDailyProgress } from '@/hooks/use-daily-progress';
 import { useDevice } from '@/hooks/use-device';
 import { useDrawer } from '@/hooks/use-drawer';
 import { useQuiz } from '@/hooks/use-quiz';
-import { useStatsContext } from '@/contexts/stats-context';
 import type { ButtonState } from '@/components/answer-button';
 
 export default function HomeScreen() {
@@ -23,21 +22,19 @@ export default function HomeScreen() {
   const isDark = colorScheme === 'dark';
   const palette = isDark ? Colors.dark : Colors.light;
 
-  const { todayCount, dailyGoal, incrementTodayCount, reload: reloadProgress } = useDailyProgress();
-  const { addResult } = useStatsContext();
+  const { todayCount, dailyGoal, addAnswer, reloadDailyGoal } = useStatsContext();
   const { horizontalPadding } = useDevice();
   const drawer = useDrawer();
 
-  // Re-read persisted values every time this screen comes into focus
+  // Re-read dailyGoal from storage on focus (picks up goal set during onboarding)
   useFocusEffect(useCallback(() => {
-    reloadProgress();
-  }, [reloadProgress]));
+    reloadDailyGoal();
+  }, [reloadDailyGoal]));
 
   const handleAnswer = (option: string) => {
     if (selected !== null) return;
     selectAnswer(option);
-    incrementTodayCount();
-    addResult(option === currentWord.ua);
+    addAnswer(option === currentWord.ua);
   };
 
   const getButtonState = (option: string): ButtonState => {

@@ -1,8 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import {
-  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -50,6 +49,22 @@ const BACKDROP_CLOSE_TIMING = {
   easing: Easing.in(Easing.ease),
 } as const;
 
+// Конфіг кастомних діалогів підтвердження (замінює Alert.alert, який не працює на вебі)
+type PendingAction = 'reset' | 'startOver' | null;
+
+const DIALOG_CONFIG = {
+  reset: {
+    title: 'Скинути статистику',
+    message: 'Весь прогрес буде видалено. Продовжити?',
+    confirm: 'Скинути',
+  },
+  startOver: {
+    title: 'Почати спочатку',
+    message: 'Статистика та налаштування будуть скинуті. Онбординг покажеться знову.',
+    confirm: 'Почати спочатку',
+  },
+} as const;
+
 interface DrawerPanelProps {
   isOpen: boolean;
   onClose: () => void;
@@ -71,6 +86,8 @@ export function DrawerPanel({
   const router = useRouter();
 
   const { totalAnswered, totalWrong, streak, accuracy, resetStats } = useStatsContext();
+
+  const [pendingAction, setPendingAction] = useState<PendingAction>(null);
 
   const translateX = useSharedValue(-DRAWER_WIDTH);
   const backdropOpacity = useSharedValue(0);
@@ -94,51 +111,26 @@ export function DrawerPanel({
     pointerEvents: isOpen ? 'auto' : 'none',
   }));
 
-  const handleResetStats = () => {
-    Alert.alert(
-      'Скинути статистику',
-      'Весь прогрес буде видалено. Продовжити?',
-      [
-        { text: 'Скасувати', style: 'cancel' },
-        {
-          text: 'Скинути',
-          style: 'destructive',
-          onPress: () => resetStats(),
-        },
-      ],
-    );
-  };
+  const handleResetStats = () => setPendingAction('reset');
+  const handleStartOver = () => setPendingAction('startOver');
 
-  const handleStartOver = () => {
-    Alert.alert(
-      'Почати спочатку',
-      'Статистика та налаштування будуть скинуті. Онбординг покажеться знову.',
-      [
-        { text: 'Скасувати', style: 'cancel' },
-        {
-          text: 'Почати спочатку',
-          style: 'destructive',
-          onPress: async () => {
-            // Збираємо всі ключі прогресу за день (dailyCount_*)
-            const allKeys = await AsyncStorage.getAllKeys().catch(() => [] as readonly string[]);
-            const dailyKeys = allKeys.filter((k) => k.startsWith('dailyCount_'));
+  const handleCancel = () => setPendingAction(null);
 
-            await Promise.all([
-              resetStats(),
-              AsyncStorage.removeItem(STORAGE_KEYS.hasSeenOnboarding).catch(() => {}),
-              AsyncStorage.removeItem(STORAGE_KEYS.dailyGoal).catch(() => {}),
-              AsyncStorage.removeItem(STORAGE_KEYS.themeMode).catch(() => {}),
-              dailyKeys.length > 0
-                ? AsyncStorage.multiRemove(dailyKeys as string[]).catch(() => {})
-                : Promise.resolve(),
-            ]);
-
-            onClose();
-            router.replace('/onboarding');
-          },
-        },
-      ],
-    );
+  const handleConfirm = async () => {
+    const action = pendingAction;
+    setPendingAction(null);
+    if (action === 'reset') {
+      await resetStats();
+    } else if (action === 'startOver') {
+      await Promise.all([
+        resetStats(),
+        AsyncStorage.removeItem(STORAGE_KEYS.hasSeenOnboarding).catch(() => {}),
+        AsyncStorage.removeItem(STORAGE_KEYS.dailyGoal).catch(() => {}),
+        AsyncStorage.removeItem(STORAGE_KEYS.themeMode).catch(() => {}),
+      ]);
+      onClose();
+      router.replace('/onboarding');
+    }
   };
 
   return (
@@ -234,6 +226,59 @@ export function DrawerPanel({
           </View>
         </ScrollView>
       </Animated.View>
+
+      {/* Кастомний діалог підтвердження (замінює Alert.alert, який не працює на вебі) */}
+      {pendingAction !== null && (
+        <>
+          <Pressable
+            style={styles.dialogBackdrop}
+            onPress={handleCancel}
+            accessibilityLabel="Скасувати"
+          />
+          <View style={[styles.dialogCard, { backgroundColor: palette.background }]}>
+            <Text
+              style={[styles.dialogTitle, { color: palette.text }]}
+              maxFontSizeMultiplier={1.2}>
+              {DIALOG_CONFIG[pendingAction].title}
+            </Text>
+            <Text
+              style={[styles.dialogMessage, { color: palette.mutedText }]}
+              maxFontSizeMultiplier={1.2}>
+              {DIALOG_CONFIG[pendingAction].message}
+            </Text>
+            <View style={styles.dialogActions}>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.dialogBtn,
+                  { borderColor: palette.surfaceBorder },
+                  pressed && { opacity: 0.7 },
+                ]}
+                onPress={handleCancel}
+                accessibilityRole="button">
+                <Text
+                  style={[styles.dialogBtnText, { color: palette.text }]}
+                  maxFontSizeMultiplier={1.2}>
+                  Скасувати
+                </Text>
+              </Pressable>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.dialogBtn,
+                  styles.dialogBtnDestructive,
+                  pressed && { opacity: 0.8 },
+                ]}
+                onPress={handleConfirm}
+                accessibilityRole="button">
+                <Text
+                  style={[styles.dialogBtnText, { color: '#fff' }]}
+                  maxFontSizeMultiplier={1.2}>
+                  {DIALOG_CONFIG[pendingAction].confirm}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </>
+      )}
     </>
   );
 }
@@ -307,5 +352,54 @@ const styles = StyleSheet.create({
   dangerText: {
     fontSize: 14,
     fontWeight: '500',
+  },
+  // ─── Кастомний діалог ────────────────────────────────────────────────────────
+  dialogBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    zIndex: 20,
+  },
+  dialogCard: {
+    position: 'absolute',
+    zIndex: 21,
+    left: 20,
+    right: 20,
+    top: '35%',
+    borderRadius: 16,
+    padding: 24,
+    gap: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 24,
+  },
+  dialogTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+  },
+  dialogMessage: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  dialogActions: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 4,
+  },
+  dialogBtn: {
+    flex: 1,
+    borderWidth: 1.5,
+    borderRadius: 10,
+    paddingVertical: 11,
+    alignItems: 'center',
+  },
+  dialogBtnDestructive: {
+    backgroundColor: '#ef4444',
+    borderColor: '#ef4444',
+  },
+  dialogBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

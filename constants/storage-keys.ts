@@ -1,11 +1,7 @@
 export const STORAGE_KEYS = {
   hasSeenOnboarding: 'hasSeenOnboarding',
   dailyGoal: 'dailyGoal',
-  dailyCount: (date: string) => `dailyCount_${date}`,
   themeMode: 'themeMode',
-  statsTotal: 'statsTotal',
-  statsCorrect: 'statsCorrect',
-  statsWrong: 'statsWrong',
-  statsStreak: 'statsStreak',
-  statsLastDate: 'statsLastDate',
+  /** All-time + daily stats stored as a single JSON blob (v2). */
+  stats: 'v2_stats',
 } as const;
