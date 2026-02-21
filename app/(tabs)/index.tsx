@@ -1,6 +1,6 @@
 import { useFocusEffect } from 'expo-router';
-import { useCallback } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect } from 'react';
+import { StyleSheet, Text, View, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AnswerButton } from '@/components/answer-button';
@@ -15,7 +15,7 @@ import { useQuiz } from '@/hooks/use-quiz';
 import type { ButtonState } from '@/components/answer-button';
 
 export default function HomeScreen() {
-  const { currentWord, options, selected, isCorrect, score, total, selectAnswer, nextWord } =
+  const { currentWord, options, selected, isCorrect, readyToAdvance, selectAnswer, nextWord, resetQuiz } =
     useQuiz();
 
   const { colorScheme } = useAppTheme();
@@ -30,6 +30,13 @@ export default function HomeScreen() {
   useFocusEffect(useCallback(() => {
     reloadDailyGoal();
   }, [reloadDailyGoal]));
+
+  // Автоматичний перехід до наступного слова через 1.5 с після будь-якої відповіді
+  useEffect(() => {
+    if (!readyToAdvance) return;
+    const timer = setTimeout(nextWord, 1500);
+    return () => clearTimeout(timer);
+  }, [readyToAdvance, nextWord]);
 
   const handleAnswer = (option: string) => {
     if (selected !== null) return;
@@ -52,6 +59,7 @@ export default function HomeScreen() {
       <DrawerPanel
         isOpen={drawer.isOpen}
         onClose={drawer.close}
+        onResetQuiz={resetQuiz}
         todayCount={todayCount}
         dailyGoal={dailyGoal}
       />
@@ -59,7 +67,7 @@ export default function HomeScreen() {
       {/* Main content — padded responsively */}
       <View style={[styles.content, { paddingHorizontal: horizontalPadding }]}>
 
-        {/* Рядок рахунку + кнопка меню */}
+        {/* Рядок зворотного зв'язку + кнопка меню */}
         <View style={styles.header}>
           <Pressable
             style={({ pressed }) => [styles.menuBtn, pressed && { opacity: 0.6 }]}
@@ -73,12 +81,6 @@ export default function HomeScreen() {
               ☰
             </Text>
           </Pressable>
-
-          <Text
-            style={[styles.score, { color: isDark ? Blue[300] : Blue[700] }]}
-            maxFontSizeMultiplier={1.2}>
-            {score} / {total}
-          </Text>
 
           <View style={styles.feedbackSlot}>
             {isCorrect === true && (
@@ -148,21 +150,6 @@ export default function HomeScreen() {
             />
           ))}
         </View>
-
-        {/* Кнопка «Далі» */}
-        {selected !== null && (
-          <Pressable
-            style={({ pressed }) => [
-              styles.nextButton,
-              { backgroundColor: isDark ? Blue[500] : Blue[600] },
-              pressed && styles.nextPressed,
-            ]}
-            onPress={nextWord}
-            accessibilityLabel="Наступне слово"
-            accessibilityRole="button">
-            <Text style={styles.nextText} maxFontSizeMultiplier={1.2}>Далі →</Text>
-          </Pressable>
-        )}
       </View>
     </SafeAreaView>
   );
@@ -191,10 +178,6 @@ const styles = StyleSheet.create({
   },
   menuIcon: {
     fontSize: 22,
-    fontWeight: '600',
-  },
-  score: {
-    fontSize: 16,
     fontWeight: '600',
   },
   feedbackSlot: {
@@ -239,19 +222,5 @@ const styles = StyleSheet.create({
     fontSize: 34,
     lineHeight: 42,
     letterSpacing: 1,
-  },
-  nextButton: {
-    marginTop: 8,
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  nextPressed: {
-    opacity: 0.8,
-  },
-  nextText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '600',
   },
 });

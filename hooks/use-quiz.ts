@@ -12,6 +12,9 @@ function shuffle<T>(arr: T[]): T[] {
 }
 
 const OPTIONS_COUNT = 6;
+// Мінімальний відступ перед повторним показом неправильно відповіданого слова
+const MIN_RETRY_GAP = 4;
+const MAX_RETRY_GAP = 10;
 
 function generateOptions(correct: Word, allWords: Word[]): string[] {
   const wrongPool = allWords.filter((w) => w.ua !== correct.ua);
@@ -47,6 +50,24 @@ function createInitialState(): State {
   };
 }
 
+/**
+ * Вставляє слово у випадкову позицію у залишку черги.
+ * Якщо залишку недостатньо для відступу — слово природно з'явиться
+ * у наступному перемішаному циклі (WORDS його містить).
+ */
+function reinsertWord(queue: Word[], afterIndex: number, word: Word): Word[] {
+  const remaining = queue.length - afterIndex - 1;
+  if (remaining <= MIN_RETRY_GAP) return queue; // з'явиться в наступному циклі
+
+  const maxGap = Math.min(MAX_RETRY_GAP, remaining - 1);
+  const gap = MIN_RETRY_GAP + Math.floor(Math.random() * (maxGap - MIN_RETRY_GAP + 1));
+  const insertAt = afterIndex + 1 + gap;
+
+  const newQueue = [...queue];
+  newQueue.splice(insertAt, 0, word);
+  return newQueue;
+}
+
 export function useQuiz() {
   const [state, setState] = useState<State>(createInitialState);
 
@@ -54,8 +75,15 @@ export function useQuiz() {
     setState((prev) => {
       if (prev.selected !== null) return prev;
       const isCorrect = answer === prev.currentWord.ua;
+
+      // Неправильна відповідь → вставляємо слово назад у чергу на випадкову позицію
+      const queue = isCorrect
+        ? prev.queue
+        : reinsertWord(prev.queue, prev.queueIndex, prev.currentWord);
+
       return {
         ...prev,
+        queue,
         selected: answer,
         isCorrect,
         score: isCorrect ? prev.score + 1 : prev.score,
@@ -87,6 +115,13 @@ export function useQuiz() {
     });
   }, []);
 
+  const resetQuiz = useCallback(() => {
+    setState(createInitialState());
+  }, []);
+
+  // Будь-яка відповідь → auto-advance через 1.5 с
+  const readyToAdvance = state.selected !== null;
+
   return {
     currentWord: state.currentWord,
     options: state.options,
@@ -94,7 +129,9 @@ export function useQuiz() {
     isCorrect: state.isCorrect,
     score: state.score,
     total: state.total,
+    readyToAdvance,
     selectAnswer,
     nextWord,
+    resetQuiz,
   };
 }

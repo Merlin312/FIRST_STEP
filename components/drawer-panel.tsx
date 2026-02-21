@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -68,6 +69,7 @@ const DIALOG_CONFIG = {
 interface DrawerPanelProps {
   isOpen: boolean;
   onClose: () => void;
+  onResetQuiz?: () => void;
   todayCount: number;
   dailyGoal: number;
 }
@@ -75,6 +77,7 @@ interface DrawerPanelProps {
 export function DrawerPanel({
   isOpen,
   onClose,
+  onResetQuiz,
   todayCount,
   dailyGoal,
 }: DrawerPanelProps) {
@@ -121,6 +124,7 @@ export function DrawerPanel({
     setPendingAction(null);
     if (action === 'reset') {
       await resetStats();
+      onResetQuiz?.();
     } else if (action === 'startOver') {
       await Promise.all([
         resetStats(),
@@ -227,24 +231,31 @@ export function DrawerPanel({
         </ScrollView>
       </Animated.View>
 
-      {/* Кастомний діалог підтвердження (замінює Alert.alert, який не працює на вебі) */}
-      {pendingAction !== null && (
-        <>
+      {/* Кастомний діалог підтвердження через Modal — гарантує рендер поверх усього */}
+      <Modal
+        visible={pendingAction !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={handleCancel}
+        statusBarTranslucent>
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={handleCancel}
+          accessibilityLabel="Скасувати">
+          {/* Вкладений Pressable на картці поглинає дотики, щоб не закривати діалог */}
           <Pressable
-            style={styles.dialogBackdrop}
-            onPress={handleCancel}
-            accessibilityLabel="Скасувати"
-          />
-          <View style={[styles.dialogCard, { backgroundColor: palette.background }]}>
+            style={[styles.dialogCard, { backgroundColor: palette.background }]}
+            onPress={() => {}}
+            accessibilityRole="none">
             <Text
               style={[styles.dialogTitle, { color: palette.text }]}
               maxFontSizeMultiplier={1.2}>
-              {DIALOG_CONFIG[pendingAction].title}
+              {pendingAction ? DIALOG_CONFIG[pendingAction].title : ''}
             </Text>
             <Text
               style={[styles.dialogMessage, { color: palette.mutedText }]}
               maxFontSizeMultiplier={1.2}>
-              {DIALOG_CONFIG[pendingAction].message}
+              {pendingAction ? DIALOG_CONFIG[pendingAction].message : ''}
             </Text>
             <View style={styles.dialogActions}>
               <Pressable
@@ -272,13 +283,13 @@ export function DrawerPanel({
                 <Text
                   style={[styles.dialogBtnText, { color: '#fff' }]}
                   maxFontSizeMultiplier={1.2}>
-                  {DIALOG_CONFIG[pendingAction].confirm}
+                  {pendingAction ? DIALOG_CONFIG[pendingAction].confirm : ''}
                 </Text>
               </Pressable>
             </View>
-          </View>
-        </>
-      )}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </>
   );
 }
@@ -354,17 +365,13 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   // ─── Кастомний діалог ────────────────────────────────────────────────────────
-  dialogBackdrop: {
-    ...StyleSheet.absoluteFillObject,
+  modalOverlay: {
+    flex: 1,
     backgroundColor: 'rgba(0,0,0,0.55)',
-    zIndex: 20,
+    justifyContent: 'center',
+    paddingHorizontal: 20,
   },
   dialogCard: {
-    position: 'absolute',
-    zIndex: 21,
-    left: 20,
-    right: 20,
-    top: '35%',
     borderRadius: 16,
     padding: 24,
     gap: 12,
