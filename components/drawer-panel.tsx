@@ -6,7 +6,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   useWindowDimensions,
   View,
@@ -30,13 +29,13 @@ import {
 } from '@/constants/ui';
 import { STORAGE_KEYS } from '@/constants/storage-keys';
 import { Blue, Colors } from '@/constants/theme';
+import type { WordCategory } from '@/constants/words';
 import { useAppTheme } from '@/contexts/theme-context';
 import { useStatsContext } from '@/contexts/stats-context';
 
 import { AuthSection } from '@/components/drawer/auth-section';
-import { LanguageSection } from '@/components/drawer/language-section';
+import { SettingsSection } from '@/components/drawer/settings-section';
 import { StatsSection } from '@/components/drawer/stats-section';
-import { ThemeSection } from '@/components/drawer/theme-section';
 
 // Конфіг кастомних діалогів підтвердження (замінює Alert.alert, який не працює на вебі)
 type PendingAction = 'reset' | 'startOver' | null;
@@ -60,6 +59,10 @@ interface DrawerPanelProps {
   onResetQuiz?: () => void;
   todayCount: number;
   dailyGoal: number;
+  category: WordCategory | undefined;
+  onCategoryChange: (cat: WordCategory | undefined) => void;
+  autoAdvance: boolean;
+  onAutoAdvanceChange: (val: boolean) => void;
 }
 
 export function DrawerPanel({
@@ -68,6 +71,10 @@ export function DrawerPanel({
   onResetQuiz,
   todayCount,
   dailyGoal,
+  category,
+  onCategoryChange,
+  autoAdvance,
+  onAutoAdvanceChange,
 }: DrawerPanelProps) {
   const { colorScheme } = useAppTheme();
   const isDark = colorScheme === 'dark';
@@ -76,15 +83,7 @@ export function DrawerPanel({
   const { width: screenWidth } = useWindowDimensions();
   const router = useRouter();
 
-  const {
-    totalAnswered,
-    totalWrong,
-    streak,
-    accuracy,
-    resetStats,
-    streakCorrectOnly,
-    setStreakCorrectOnly,
-  } = useStatsContext();
+  const { totalAnswered, totalWrong, streak, accuracy, resetStats } = useStatsContext();
 
   const [pendingAction, setPendingAction] = useState<PendingAction>(null);
 
@@ -138,6 +137,8 @@ export function DrawerPanel({
         AsyncStorage.removeItem(STORAGE_KEYS.hasSeenOnboarding).catch(() => {}),
         AsyncStorage.removeItem(STORAGE_KEYS.dailyGoal).catch(() => {}),
         AsyncStorage.removeItem(STORAGE_KEYS.themeMode).catch(() => {}),
+        AsyncStorage.removeItem(STORAGE_KEYS.wordCategory).catch(() => {}),
+        AsyncStorage.removeItem(STORAGE_KEYS.autoAdvance).catch(() => {}),
       ]);
       onClose();
       router.replace('/onboarding');
@@ -202,30 +203,13 @@ export function DrawerPanel({
               streak={streak}
             />
             <Divider palette={palette} />
-            <LanguageSection isDark={isDark} />
-            <Divider palette={palette} />
-            <ThemeSection isDark={isDark} />
-            <Divider palette={palette} />
-
-            {/* Settings */}
-            <View style={styles.section}>
-              <Text style={[styles.sectionLabel, { color: palette.mutedText }]}>
-                ⚙️  НАЛАШТУВАННЯ
-              </Text>
-              <View style={styles.settingRow}>
-                <Text
-                  style={[styles.settingLabel, { color: palette.text }]}
-                  maxFontSizeMultiplier={1.2}>
-                  Серія тільки за правильні
-                </Text>
-                <Switch
-                  value={streakCorrectOnly}
-                  onValueChange={setStreakCorrectOnly}
-                  trackColor={{ false: palette.surfaceBorder, true: Blue[500] }}
-                  thumbColor={streakCorrectOnly ? Blue[100] : palette.surface}
-                />
-              </View>
-            </View>
+            <SettingsSection
+              isDark={isDark}
+              category={category}
+              onCategoryChange={onCategoryChange}
+              autoAdvance={autoAdvance}
+              onAutoAdvanceChange={onAutoAdvanceChange}
+            />
             <Divider palette={palette} />
 
             {/* Tutorial */}
@@ -398,25 +382,9 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     gap: 10,
   },
-  sectionLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.8,
-    marginBottom: 4,
-  },
   divider: {
     height: 1,
     marginHorizontal: 20,
-  },
-  settingRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  settingLabel: {
-    fontSize: 14,
-    flex: 1,
-    paddingRight: 8,
   },
   secondaryBtn: {
     borderWidth: 1.5,

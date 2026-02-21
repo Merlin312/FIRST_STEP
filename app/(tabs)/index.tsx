@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -21,7 +22,9 @@ import {
   SWIPE_OPEN_EDGE,
   SWIPE_THRESHOLD,
 } from '@/constants/ui';
+import { STORAGE_KEYS } from '@/constants/storage-keys';
 import { Blue, Colors } from '@/constants/theme';
+import type { WordCategory } from '@/constants/words';
 import { useAppTheme } from '@/contexts/theme-context';
 import { useStatsContext } from '@/contexts/stats-context';
 import { useDevice } from '@/hooks/use-device';
@@ -30,6 +33,9 @@ import { useQuiz } from '@/hooks/use-quiz';
 import type { ButtonState } from '@/components/answer-button';
 
 export default function HomeScreen() {
+  const [category, setCategory] = useState<WordCategory | undefined>(undefined);
+  const [autoAdvance, setAutoAdvance] = useState(true);
+
   const {
     currentWord,
     options,
@@ -44,7 +50,7 @@ export default function HomeScreen() {
     skipWord,
     revealHint,
     resetQuiz,
-  } = useQuiz();
+  } = useQuiz(category);
 
   const { colorScheme } = useAppTheme();
   const isDark = colorScheme === 'dark';
@@ -57,6 +63,31 @@ export default function HomeScreen() {
   const [showCelebration, setShowCelebration] = useState(false);
   const celebrationShownRef = useRef(false);
 
+  // Load persisted quiz settings on mount
+  useEffect(() => {
+    AsyncStorage.multiGet([STORAGE_KEYS.wordCategory, STORAGE_KEYS.autoAdvance])
+      .then(([[, cat], [, adv]]) => {
+        if (cat) setCategory(cat as WordCategory);
+        if (adv !== null) setAutoAdvance(adv !== 'false');
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleCategoryChange = useCallback(async (cat: WordCategory | undefined) => {
+    setCategory(cat);
+    if (cat) {
+      await AsyncStorage.setItem(STORAGE_KEYS.wordCategory, cat);
+    } else {
+      await AsyncStorage.removeItem(STORAGE_KEYS.wordCategory);
+    }
+  }, []);
+
+  const handleAutoAdvanceChange = useCallback(async (val: boolean) => {
+    setAutoAdvance(val);
+    await AsyncStorage.setItem(STORAGE_KEYS.autoAdvance, String(val));
+  }, []);
+
   // Re-read dailyGoal from storage on focus (picks up goal set during onboarding)
   useFocusEffect(
     useCallback(() => {
@@ -65,12 +96,12 @@ export default function HomeScreen() {
     }, [reloadDailyGoal]),
   );
 
-  // Auto-advance to next word after QUIZ_ADVANCE_DELAY_MS
+  // Auto-advance to next word after QUIZ_ADVANCE_DELAY_MS (only when autoAdvance is on)
   useEffect(() => {
-    if (!readyToAdvance) return;
+    if (!readyToAdvance || !autoAdvance) return;
     const timer = setTimeout(nextWord, QUIZ_ADVANCE_DELAY_MS);
     return () => clearTimeout(timer);
-  }, [readyToAdvance, nextWord]);
+  }, [readyToAdvance, nextWord, autoAdvance]);
 
   // Show celebration modal when daily goal is first reached today
   useEffect(() => {
@@ -134,6 +165,10 @@ export default function HomeScreen() {
           onResetQuiz={resetQuiz}
           todayCount={todayCount}
           dailyGoal={dailyGoal}
+          category={category}
+          onCategoryChange={handleCategoryChange}
+          autoAdvance={autoAdvance}
+          onAutoAdvanceChange={handleAutoAdvanceChange}
         />
 
         {/* Main content — padded responsively */}
@@ -223,6 +258,25 @@ export default function HomeScreen() {
               </Text>
             )}
           </View>
+
+          {/* Manual advance button — shown after answering when autoAdvance is off */}
+          {selected !== null && !autoAdvance && (
+            <View style={styles.auxRow}>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.nextBtn,
+                  { backgroundColor: Blue[600] },
+                  pressed && { opacity: 0.85 },
+                ]}
+                onPress={nextWord}
+                accessibilityLabel="Наступне слово"
+                accessibilityRole="button">
+                <Text style={styles.nextBtnText} maxFontSizeMultiplier={1.2}>
+                  Далі →
+                </Text>
+              </Pressable>
+            </View>
+          )}
 
           {/* Auxiliary row: Hint + Skip (hidden after answering) */}
           {selected === null && (
@@ -378,5 +432,16 @@ const styles = StyleSheet.create({
   auxBtnText: {
     fontSize: 12,
     fontWeight: '500',
+  },
+  nextBtn: {
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+  },
+  nextBtnText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '700',
   },
 });

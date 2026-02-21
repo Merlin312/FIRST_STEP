@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
@@ -6,7 +7,11 @@ import Animated, {
   withSpring,
 } from 'react-native-reanimated';
 
-import { Colors } from '@/constants/theme';
+import { STORAGE_KEYS } from '@/constants/storage-keys';
+import { Blue, Colors } from '@/constants/theme';
+import type { WordCategory } from '@/constants/words';
+import { type ThemeMode, useAppTheme } from '@/contexts/theme-context';
+import { useStatsContext } from '@/contexts/stats-context';
 
 const SPRING = {
   damping: 32,
@@ -17,8 +22,41 @@ const SPRING = {
 
 type Palette = (typeof Colors)['light'] | (typeof Colors)['dark'];
 
-export function SettingsSection({ isDark }: { isDark: boolean }) {
+const THEME_OPTIONS: { label: string; value: ThemeMode }[] = [
+  { label: 'Системна', value: 'system' },
+  { label: 'Світла', value: 'light' },
+  { label: 'Темна', value: 'dark' },
+];
+
+const GOAL_OPTIONS = [10, 20, 50] as const;
+
+const CATEGORY_OPTIONS: { label: string; value: WordCategory | undefined }[] = [
+  { label: 'Всі', value: undefined },
+  { label: 'Дієслова', value: 'verb' },
+  { label: 'Іменники', value: 'noun' },
+  { label: 'Прикмет.', value: 'adjective' },
+  { label: 'Прислів.', value: 'adverb' },
+];
+
+export interface SettingsSectionProps {
+  isDark: boolean;
+  category: WordCategory | undefined;
+  onCategoryChange: (cat: WordCategory | undefined) => void;
+  autoAdvance: boolean;
+  onAutoAdvanceChange: (val: boolean) => void;
+}
+
+export function SettingsSection({
+  isDark,
+  category,
+  onCategoryChange,
+  autoAdvance,
+  onAutoAdvanceChange,
+}: SettingsSectionProps) {
   const palette: Palette = isDark ? Colors.dark : Colors.light;
+  const { themeMode, setThemeMode } = useAppTheme();
+  const { dailyGoal, streakCorrectOnly, setStreakCorrectOnly, reloadDailyGoal } = useStatsContext();
+
   const [isExpanded, setIsExpanded] = useState(false);
   const contentHeight = useRef(0);
   const heightValue = useSharedValue(0);
@@ -40,15 +78,21 @@ export function SettingsSection({ isDark }: { isDark: boolean }) {
     chevronAngle.value = withSpring(next ? 1 : 0, SPRING);
   };
 
+  const handleGoalChange = async (goal: number) => {
+    await AsyncStorage.setItem(STORAGE_KEYS.dailyGoal, String(goal));
+    reloadDailyGoal();
+  };
+
   return (
     <View style={styles.wrapper}>
+      {/* Header — always visible */}
       <Pressable
         style={({ pressed }) => [styles.header, pressed && { opacity: 0.7 }]}
         onPress={toggle}
         accessibilityLabel="Налаштування"
         accessibilityRole="button"
         accessibilityState={{ expanded: isExpanded }}>
-        <Text style={[styles.label, { color: palette.mutedText }]} maxFontSizeMultiplier={1.2}>
+        <Text style={[styles.headerLabel, { color: palette.mutedText }]} maxFontSizeMultiplier={1.2}>
           ⚙️  НАЛАШТУВАННЯ
         </Text>
         <Animated.View style={chevronStyle}>
@@ -56,54 +100,207 @@ export function SettingsSection({ isDark }: { isDark: boolean }) {
         </Animated.View>
       </Pressable>
 
+      {/* Expandable body */}
       <Animated.View style={animatedHeight}>
         <View
           onLayout={(e) => {
             const h = e.nativeEvent.layout.height;
             if (h > 0) contentHeight.current = h;
           }}>
-          <PlaceholderRow label="Варіантів відповіді" hint="6" palette={palette} />
-          <PlaceholderRow label="Тільки нові слова" palette={palette} />
-          <PlaceholderRow label="Нагадування" palette={palette} />
+
+          {/* ─── Вигляд ─── */}
+          <InnerDivider palette={palette} />
+          <SubLabel label="🎨  ВИГЛЯД" palette={palette} />
+          <View style={styles.pillRow}>
+            {THEME_OPTIONS.map(({ label, value }) => (
+              <SelectPill
+                key={value}
+                label={label}
+                active={themeMode === value}
+                isDark={isDark}
+                palette={palette}
+                flex
+                onPress={() => setThemeMode(value)}
+                accessibilityLabel={`Тема: ${label}`}
+              />
+            ))}
+          </View>
+
+          {/* ─── Мова ─── */}
+          <InnerDivider palette={palette} />
+          <SubLabel label="🌐  МОВА ПЕРЕКЛАДУ" palette={palette} />
+          <View
+            style={[
+              styles.langRow,
+              { backgroundColor: palette.surface, borderColor: palette.surfaceBorder },
+            ]}>
+            <Text style={[styles.langText, { color: palette.text }]} maxFontSizeMultiplier={1.2}>
+              🇺🇦  Українська
+            </Text>
+            <Text style={{ color: Blue[500] }}>✓</Text>
+          </View>
+          <View style={[styles.addLangBtn, { borderColor: palette.surfaceBorder }]}>
+            <Text
+              style={[styles.addLangText, { color: palette.subtleText }]}
+              maxFontSizeMultiplier={1.2}>
+              + Додати мову  (скоро)
+            </Text>
+          </View>
+
+          {/* ─── Квіз ─── */}
+          <InnerDivider palette={palette} />
+          <SubLabel label="📚  КВІЗ" palette={palette} />
+
+          <RowLabel label="Щоденна ціль" palette={palette} />
+          <View style={styles.pillRow}>
+            {GOAL_OPTIONS.map((g) => (
+              <SelectPill
+                key={g}
+                label={String(g)}
+                active={dailyGoal === g}
+                isDark={isDark}
+                palette={palette}
+                flex
+                onPress={() => handleGoalChange(g)}
+                accessibilityLabel={`Ціль ${g} слів на день`}
+              />
+            ))}
+          </View>
+
+          <RowLabel label="Категорія слів" palette={palette} />
+          <View style={[styles.pillRow, styles.pillRowWrap]}>
+            {CATEGORY_OPTIONS.map(({ label, value }) => (
+              <SelectPill
+                key={label}
+                label={label}
+                active={category === value}
+                isDark={isDark}
+                palette={palette}
+                flex={false}
+                onPress={() => onCategoryChange(value)}
+                accessibilityLabel={`Категорія: ${label}`}
+              />
+            ))}
+          </View>
+
+          <RowLabel label="Автоперехід" palette={palette} />
+          <View style={styles.pillRow}>
+            <SelectPill
+              label="Авто"
+              active={autoAdvance}
+              isDark={isDark}
+              palette={palette}
+              flex
+              onPress={() => onAutoAdvanceChange(true)}
+              accessibilityLabel="Автоматичний перехід до наступного слова"
+            />
+            <SelectPill
+              label="Вручну"
+              active={!autoAdvance}
+              isDark={isDark}
+              palette={palette}
+              flex
+              onPress={() => onAutoAdvanceChange(false)}
+              accessibilityLabel="Перехід до наступного слова вручну"
+            />
+          </View>
+
+          {/* ─── Серія ─── */}
+          <InnerDivider palette={palette} />
+          <SubLabel label="🔥  СЕРІЯ" palette={palette} />
+
+          <RowLabel label="Зараховувати відповіді" palette={palette} />
+          <View style={[styles.pillRow, { marginBottom: 4 }]}>
+            <SelectPill
+              label="Будь-які"
+              active={!streakCorrectOnly}
+              isDark={isDark}
+              palette={palette}
+              flex
+              onPress={() => setStreakCorrectOnly(false)}
+              accessibilityLabel="Серія зараховується за будь-яку відповідь"
+            />
+            <SelectPill
+              label="Правильні"
+              active={streakCorrectOnly}
+              isDark={isDark}
+              palette={palette}
+              flex
+              onPress={() => setStreakCorrectOnly(true)}
+              accessibilityLabel="Серія зараховується тільки за правильні відповіді"
+            />
+          </View>
+
         </View>
       </Animated.View>
     </View>
   );
 }
 
-function PlaceholderRow({
-  label,
-  hint,
-  palette,
-}: {
-  label: string;
-  hint?: string;
-  palette: Palette;
-}) {
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+function InnerDivider({ palette }: { palette: Palette }) {
+  return <View style={[styles.innerDivider, { backgroundColor: palette.surfaceBorder }]} />;
+}
+
+function SubLabel({ label, palette }: { label: string; palette: Palette }) {
   return (
-    <View style={[styles.row, { opacity: 0.45 }]}>
-      <Text style={[styles.rowLabel, { color: palette.text }]} maxFontSizeMultiplier={1.2}>
-        {label}
-      </Text>
-      <View style={styles.rowRight}>
-        {hint !== undefined && (
-          <Text style={[styles.hintText, { color: palette.mutedText }]} maxFontSizeMultiplier={1.2}>
-            {hint}
-          </Text>
-        )}
-        <View
-          style={[
-            styles.soonBadge,
-            { backgroundColor: palette.surface, borderColor: palette.surfaceBorder },
-          ]}>
-          <Text style={[styles.soonText, { color: palette.mutedText }]} maxFontSizeMultiplier={1.2}>
-            скоро
-          </Text>
-        </View>
-      </View>
-    </View>
+    <Text style={[styles.subLabel, { color: palette.mutedText }]} maxFontSizeMultiplier={1.2}>
+      {label}
+    </Text>
   );
 }
+
+function RowLabel({ label, palette }: { label: string; palette: Palette }) {
+  return (
+    <Text style={[styles.rowLabelText, { color: palette.mutedText }]} maxFontSizeMultiplier={1.2}>
+      {label}
+    </Text>
+  );
+}
+
+function SelectPill({
+  label,
+  active,
+  isDark,
+  palette,
+  flex,
+  onPress,
+  accessibilityLabel,
+}: {
+  label: string;
+  active: boolean;
+  isDark: boolean;
+  palette: Palette;
+  flex: boolean;
+  onPress: () => void;
+  accessibilityLabel: string;
+}) {
+  return (
+    <Pressable
+      style={({ pressed }) => [
+        styles.pill,
+        flex && { flex: 1 },
+        {
+          backgroundColor: active ? Blue[600] : palette.surface,
+          borderColor: active ? Blue[600] : palette.surfaceBorder,
+        },
+        pressed && !active && { opacity: 0.7 },
+      ]}
+      onPress={onPress}
+      accessibilityLabel={accessibilityLabel}
+      accessibilityRole="button"
+      accessibilityState={{ selected: active }}>
+      <Text
+        style={[styles.pillText, { color: active ? '#fff' : isDark ? Blue[300] : Blue[700] }]}
+        maxFontSizeMultiplier={1.2}>
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
+// ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   wrapper: {
@@ -115,7 +312,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  label: {
+  headerLabel: {
     fontSize: 11,
     fontWeight: '700',
     letterSpacing: 0.8,
@@ -126,35 +323,66 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     fontWeight: '400',
   },
-  row: {
+  innerDivider: {
+    height: 1,
+    marginTop: 14,
+    marginBottom: 12,
+  },
+  subLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    marginBottom: 8,
+  },
+  rowLabelText: {
+    fontSize: 12,
+    fontWeight: '500',
+    marginTop: 8,
+    marginBottom: 6,
+    color: 'transparent', // overridden by inline style
+  },
+  pillRow: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  pillRowWrap: {
+    flexWrap: 'wrap',
+  },
+  pill: {
+    borderWidth: 1.5,
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    alignItems: 'center',
+  },
+  pillText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  // Language subsection
+  langRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingTop: 12,
-    gap: 8,
+    borderWidth: 1.5,
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    marginBottom: 6,
   },
-  rowLabel: {
+  langText: {
     fontSize: 14,
     fontWeight: '500',
-    flex: 1,
   },
-  rowRight: {
-    flexDirection: 'row',
+  addLangBtn: {
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderRadius: 10,
+    paddingVertical: 8,
     alignItems: 'center',
-    gap: 8,
   },
-  hintText: {
-    fontSize: 13,
-  },
-  soonBadge: {
-    borderWidth: 1,
-    borderRadius: 6,
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-  },
-  soonText: {
-    fontSize: 10,
-    fontWeight: '600',
-    letterSpacing: 0.3,
+  addLangText: {
+    fontSize: 12,
   },
 });

@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { WORDS, WORDS_BY_CATEGORY, Word, WordCategory } from '@/constants/words';
 
@@ -75,8 +75,18 @@ export function useQuiz(category?: WordCategory) {
   const wordPool = category ? WORDS_BY_CATEGORY[category] : WORDS;
   // Keep pool reference stable for callbacks
   const wordPoolRef = useRef(wordPool);
+  const prevCategoryRef = useRef(category);
 
   const [state, setState] = useState<State>(() => createInitialState(wordPool));
+
+  // Reset quiz and word pool when category changes
+  useEffect(() => {
+    if (category === prevCategoryRef.current) return;
+    prevCategoryRef.current = category;
+    const newPool = category ? WORDS_BY_CATEGORY[category] : WORDS;
+    wordPoolRef.current = newPool;
+    setState(createInitialState(newPool));
+  }, [category]);
 
   const selectAnswer = useCallback((answer: string) => {
     setState((prev) => {
