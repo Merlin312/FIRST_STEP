@@ -15,10 +15,14 @@ export function ThemedText({
   type = 'default',
   ...rest
 }: ThemedTextProps) {
-  const color = useThemeColor({ light: lightColor, dark: darkColor }, 'text');
+  const textColor = useThemeColor({ light: lightColor, dark: darkColor }, 'text');
+  const linkColor = useThemeColor({}, 'link');
+
+  const color = type === 'link' ? linkColor : textColor;
 
   return (
     <Text
+      maxFontSizeMultiplier={1.3}
       style={[
         { color },
         type === 'default' ? styles.default : undefined,
@@ -55,6 +59,6 @@ const styles = StyleSheet.create({
   link: {
     lineHeight: 30,
     fontSize: 16,
-    color: '#0a7ea4',
+    // color is handled dynamically via the linkColor hook above
   },
 });
