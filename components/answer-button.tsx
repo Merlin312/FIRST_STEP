@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Pressable, StyleSheet, Text } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ButtonColors, type ButtonState } from '@/constants/theme';
 import { useAppTheme } from '@/contexts/theme-context';
@@ -12,12 +12,19 @@ interface AnswerButtonProps {
   onPress: () => void;
 }
 
+const STATE_ICON: Partial<Record<ButtonState, string>> = {
+  correct: '✓',
+  wrong: '✗',
+};
+
 export function AnswerButton({ label, state, onPress }: AnswerButtonProps) {
   const { colorScheme } = useAppTheme();
   const colors = useMemo(
     () => ButtonColors[colorScheme][state],
     [colorScheme, state],
   );
+
+  const icon = STATE_ICON[state];
 
   return (
     <Pressable
@@ -28,12 +35,25 @@ export function AnswerButton({ label, state, onPress }: AnswerButtonProps) {
       ]}
       onPress={onPress}
       disabled={state !== 'idle'}
-      accessibilityLabel={label}
+      accessibilityLabel={icon ? `${icon} ${label}` : label}
       accessibilityRole="button"
       accessibilityState={{ disabled: state !== 'idle' }}>
-      <Text style={[styles.label, { color: colors.text }]} maxFontSizeMultiplier={1.2}>
-        {label}
-      </Text>
+      <View style={styles.row}>
+        {icon ? (
+          <Text
+            style={[styles.icon, { color: colors.text }]}
+            maxFontSizeMultiplier={1.2}>
+            {icon}
+          </Text>
+        ) : (
+          <View style={styles.iconPlaceholder} />
+        )}
+        <Text
+          style={[styles.label, { color: colors.text }]}
+          maxFontSizeMultiplier={1.2}>
+          {label}
+        </Text>
+      </View>
     </Pressable>
   );
 }
@@ -45,13 +65,29 @@ const styles = StyleSheet.create({
     paddingVertical: 13,
     paddingHorizontal: 20,
     marginBottom: 8,
-    alignItems: 'center',
   },
   pressed: {
     opacity: 0.75,
   },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  icon: {
+    fontSize: 15,
+    fontWeight: '700',
+    width: 16,
+    textAlign: 'center',
+  },
+  iconPlaceholder: {
+    width: 16,
+  },
   label: {
     fontSize: 15,
     fontWeight: '500',
+    flex: 1,
+    textAlign: 'center',
   },
 });

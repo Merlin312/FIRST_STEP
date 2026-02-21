@@ -30,9 +30,11 @@ interface StatsState {
   lastActiveDate: string; // 'YYYY-MM-DD', or '' on first launch
   // Daily progress (resets automatically when todayDate !== today)
   todayCount: number;
+  todayCorrect: number;   // correct answers today
   todayDate: string;      // 'YYYY-MM-DD', or '' on first launch
   // Settings
   dailyGoal: number;
+  streakCorrectOnly: boolean; // when true, streak increments only on correct answers
   // Internal flag — prevents persisting before initial load
   _loaded: boolean;
 }
@@ -43,8 +45,10 @@ const INITIAL: StatsState = {
   streak: 0,
   lastActiveDate: '',
   todayCount: 0,
+  todayCorrect: 0,
   todayDate: '',
   dailyGoal: 20,
+  streakCorrectOnly: false,
   _loaded: false,
 };
 
@@ -52,6 +56,7 @@ type Action =
   | { type: 'LOAD'; payload: StatsState }
   | { type: 'RELOAD_GOAL'; dailyGoal: number }
   | { type: 'ANSWER'; isCorrect: boolean }
+  | { type: 'SET_STREAK_MODE'; correctOnly: boolean }
   | { type: 'RESET' };
 
 function reducer(state: StatsState, action: Action): StatsState {
@@ -62,30 +67,57 @@ function reducer(state: StatsState, action: Action): StatsState {
     case 'RELOAD_GOAL':
       return { ...state, dailyGoal: action.dailyGoal };
 
+    case 'SET_STREAK_MODE':
+      return { ...state, streakCorrectOnly: action.correctOnly };
+
     case 'ANSWER': {
       const today = todayISO();
+      const isNewDay = state.todayDate !== today;
 
       // All-time
       const totalAnswered = state.totalAnswered + 1;
       const totalCorrect = action.isCorrect ? state.totalCorrect + 1 : state.totalCorrect;
 
-      // Daily — count resets automatically if todayDate drifted to a previous day
-      const todayCount = (state.todayDate === today ? state.todayCount : 0) + 1;
+      // Daily — resets when day changes
+      const todayCount = (isNewDay ? 0 : state.todayCount) + 1;
+      const todayCorrect = (isNewDay ? 0 : state.todayCorrect) + (action.isCorrect ? 1 : 0);
       const todayDate = today;
 
       // Streak — only recalculated on the FIRST answer of a new day
       let { streak, lastActiveDate } = state;
       if (state.lastActiveDate !== today) {
-        streak = state.lastActiveDate === dayBefore(today) ? state.streak + 1 : 1;
+        // Always update lastActiveDate to record activity
         lastActiveDate = today;
+
+        // Increment streak based on mode:
+        //   streakCorrectOnly=false (default): any answer increments streak
+        //   streakCorrectOnly=true:            only correct answers increment streak
+        const shouldIncrement = !state.streakCorrectOnly || action.isCorrect;
+        if (shouldIncrement) {
+          streak = state.lastActiveDate === dayBefore(today) ? state.streak + 1 : 1;
+        }
       }
 
-      return { ...state, totalAnswered, totalCorrect, streak, lastActiveDate, todayCount, todayDate };
+      return {
+        ...state,
+        totalAnswered,
+        totalCorrect,
+        streak,
+        lastActiveDate,
+        todayCount,
+        todayCorrect,
+        todayDate,
+      };
     }
 
     case 'RESET':
-      // Keep dailyGoal and _loaded; reset everything else
-      return { ...INITIAL, dailyGoal: state.dailyGoal, _loaded: true };
+      // Keep dailyGoal, streakCorrectOnly and _loaded; reset everything else
+      return {
+        ...INITIAL,
+        dailyGoal: state.dailyGoal,
+        streakCorrectOnly: state.streakCorrectOnly,
+        _loaded: true,
+      };
   }
 }
 
@@ -109,10 +141,12 @@ async function readFromStorage(): Promise<StatsState> {
   try {
     const p = JSON.parse(raw) as Partial<PersistedStats>;
     const today = todayISO();
+    const isNewDay = p.todayDate !== today;
 
-    // Daily count is valid only if stored date matches today
-    const todayCount = p.todayDate === today ? (p.todayCount ?? 0) : 0;
-    const todayDate = p.todayDate === today ? p.todayDate : '';
+    // Daily counters are valid only if stored date matches today
+    const todayCount = isNewDay ? 0 : (p.todayCount ?? 0);
+    const todayCorrect = isNewDay ? 0 : (p.todayCorrect ?? 0);
+    const todayDate = isNewDay ? '' : (p.todayDate ?? '');
 
     // Validate streak: if the user hasn't been active since before yesterday, streak is dead
     let streak = p.streak ?? 0;
@@ -127,8 +161,10 @@ async function readFromStorage(): Promise<StatsState> {
       streak,
       lastActiveDate,
       todayCount,
+      todayCorrect,
       todayDate,
       dailyGoal,
+      streakCorrectOnly: p.streakCorrectOnly ?? false,
       _loaded: true,
     };
   } catch {
@@ -158,10 +194,16 @@ interface StatsContextValue {
   streak: number;
   /** Words answered today */
   todayCount: number;
+  /** Correct answers today */
+  todayCorrect: number;
   /** Daily target set during onboarding */
   dailyGoal: number;
+  /** When true, streak only increments on correct answers */
+  streakCorrectOnly: boolean;
   /** Record one answer. Updates both daily count and all-time stats. */
   addAnswer: (isCorrect: boolean) => void;
+  /** Toggle streak counting mode. */
+  setStreakCorrectOnly: (correctOnly: boolean) => void;
   /** Wipe all stats from memory and storage. */
   resetStats: () => Promise<void>;
   /** Re-read dailyGoal from storage (call on screen focus after onboarding). */
@@ -175,8 +217,11 @@ const StatsContext = createContext<StatsContextValue>({
   accuracy: 0,
   streak: 0,
   todayCount: 0,
+  todayCorrect: 0,
   dailyGoal: 20,
+  streakCorrectOnly: false,
   addAnswer: () => {},
+  setStreakCorrectOnly: () => {},
   resetStats: async () => {},
   reloadDailyGoal: async () => {},
 });
@@ -203,6 +248,10 @@ export function StatsProvider({ children }: { children: React.ReactNode }) {
 
   const addAnswer = useCallback((isCorrect: boolean) => {
     dispatch({ type: 'ANSWER', isCorrect });
+  }, []);
+
+  const setStreakCorrectOnly = useCallback((correctOnly: boolean) => {
+    dispatch({ type: 'SET_STREAK_MODE', correctOnly });
   }, []);
 
   const resetStats = useCallback(async () => {
@@ -235,13 +284,24 @@ export function StatsProvider({ children }: { children: React.ReactNode }) {
           : 0,
       streak: state.streak,
       todayCount: state.todayCount,
+      todayCorrect: state.todayCorrect,
       dailyGoal: state.dailyGoal,
+      streakCorrectOnly: state.streakCorrectOnly,
       addAnswer,
+      setStreakCorrectOnly,
       resetStats,
       reloadDailyGoal,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [state.totalAnswered, state.totalCorrect, state.streak, state.todayCount, state.dailyGoal],
+    [
+      state.totalAnswered,
+      state.totalCorrect,
+      state.streak,
+      state.todayCount,
+      state.todayCorrect,
+      state.dailyGoal,
+      state.streakCorrectOnly,
+    ],
   );
 
   return <StatsContext.Provider value={value}>{children}</StatsContext.Provider>;

@@ -1,6 +1,6 @@
-import { useState, useCallback } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
-import { WORDS, Word } from '@/constants/words';
+import { WORDS, WORDS_BY_CATEGORY, Word, WordCategory } from '@/constants/words';
 
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
@@ -16,8 +16,9 @@ const OPTIONS_COUNT = 6;
 const MIN_RETRY_GAP = 4;
 const MAX_RETRY_GAP = 10;
 
-function generateOptions(correct: Word, allWords: Word[]): string[] {
-  const wrongPool = allWords.filter((w) => w.ua !== correct.ua);
+/** Generates 6 options: 1 correct + 5 from the full word pool (for variety). */
+function generateOptions(correct: Word): string[] {
+  const wrongPool = WORDS.filter((w) => w.ua !== correct.ua);
   const wrong = shuffle(wrongPool)
     .slice(0, OPTIONS_COUNT - 1)
     .map((w) => w.ua);
@@ -31,20 +32,22 @@ interface State {
   options: string[];
   selected: string | null;
   isCorrect: boolean | null;
+  hintRevealed: boolean;
   score: number;
   total: number;
 }
 
-function createInitialState(): State {
-  const queue = shuffle(WORDS);
+function createInitialState(wordPool: Word[]): State {
+  const queue = shuffle(wordPool);
   const currentWord = queue[0];
   return {
     queue,
     queueIndex: 0,
     currentWord,
-    options: generateOptions(currentWord, WORDS),
+    options: generateOptions(currentWord),
     selected: null,
     isCorrect: null,
+    hintRevealed: false,
     score: 0,
     total: 0,
   };
@@ -53,11 +56,11 @@ function createInitialState(): State {
 /**
  * Вставляє слово у випадкову позицію у залишку черги.
  * Якщо залишку недостатньо для відступу — слово природно з'явиться
- * у наступному перемішаному циклі (WORDS його містить).
+ * у наступному перемішаному циклі.
  */
 function reinsertWord(queue: Word[], afterIndex: number, word: Word): Word[] {
   const remaining = queue.length - afterIndex - 1;
-  if (remaining <= MIN_RETRY_GAP) return queue; // з'явиться в наступному циклі
+  if (remaining <= MIN_RETRY_GAP) return queue;
 
   const maxGap = Math.min(MAX_RETRY_GAP, remaining - 1);
   const gap = MIN_RETRY_GAP + Math.floor(Math.random() * (maxGap - MIN_RETRY_GAP + 1));
@@ -68,8 +71,12 @@ function reinsertWord(queue: Word[], afterIndex: number, word: Word): Word[] {
   return newQueue;
 }
 
-export function useQuiz() {
-  const [state, setState] = useState<State>(createInitialState);
+export function useQuiz(category?: WordCategory) {
+  const wordPool = category ? WORDS_BY_CATEGORY[category] : WORDS;
+  // Keep pool reference stable for callbacks
+  const wordPoolRef = useRef(wordPool);
+
+  const [state, setState] = useState<State>(() => createInitialState(wordPool));
 
   const selectAnswer = useCallback((answer: string) => {
     setState((prev) => {
@@ -98,7 +105,7 @@ export function useQuiz() {
       let nextIndex = prev.queueIndex + 1;
 
       if (nextIndex >= queue.length) {
-        queue = shuffle(WORDS);
+        queue = shuffle(wordPoolRef.current);
         nextIndex = 0;
       }
 
@@ -108,30 +115,67 @@ export function useQuiz() {
         queue,
         queueIndex: nextIndex,
         currentWord,
-        options: generateOptions(currentWord, WORDS),
+        options: generateOptions(currentWord),
         selected: null,
         isCorrect: null,
+        hintRevealed: false,
       };
     });
   }, []);
 
+  /** Переміщує поточне слово на 4–10 позицій вперед без відповіді. */
+  const skipWord = useCallback(() => {
+    setState((prev) => {
+      if (prev.selected !== null) return prev; // вже відповіли — нічого не робити
+
+      const queue = reinsertWord(prev.queue, prev.queueIndex, prev.currentWord);
+      // After reinsertion, the slot at queueIndex is now the next word
+      const currentWord = queue[prev.queueIndex];
+      return {
+        ...prev,
+        queue,
+        currentWord,
+        options: generateOptions(currentWord),
+        selected: null,
+        isCorrect: null,
+        hintRevealed: false,
+      };
+    });
+  }, []);
+
+  /** Відкриває першу літеру правильної відповіді. */
+  const revealHint = useCallback(() => {
+    setState((prev) => ({ ...prev, hintRevealed: true }));
+  }, []);
+
   const resetQuiz = useCallback(() => {
-    setState(createInitialState());
+    setState(createInitialState(wordPoolRef.current));
   }, []);
 
   // Будь-яка відповідь → auto-advance через 1.5 с
   const readyToAdvance = state.selected !== null;
+
+  // Підказка: перша літера + многокрапка
+  const hint = state.hintRevealed ? state.currentWord.ua[0] + '…' : null;
+
+  // Загальна кількість слів у поточній категорії / пулі
+  const poolSize = wordPoolRef.current.length;
 
   return {
     currentWord: state.currentWord,
     options: state.options,
     selected: state.selected,
     isCorrect: state.isCorrect,
+    hint,
     score: state.score,
     total: state.total,
+    queueIndex: state.queueIndex,
+    poolSize,
     readyToAdvance,
     selectAnswer,
     nextWord,
+    skipWord,
+    revealHint,
     resetQuiz,
   };
 }

@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import * as SplashScreen from 'expo-splash-screen';
 import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
@@ -11,6 +12,9 @@ import { Blue, Colors } from '@/constants/theme';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { AppThemeProvider, useAppTheme } from '@/contexts/theme-context';
 import { StatsProvider } from '@/contexts/stats-context';
+
+// Keep splash screen visible until the app is ready to show content
+SplashScreen.preventAutoHideAsync();
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -31,6 +35,13 @@ function RootLayoutInner() {
     // router is stable — intentionally omitted from deps to run once on mount
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (isReady) {
+      // expo-splash-screen applies a short fade-out automatically
+      SplashScreen.hideAsync().catch(() => {});
+    }
+  }, [isReady]);
 
   if (!isReady) {
     const bg = colorScheme === 'dark' ? Colors.dark.background : Colors.light.background;
