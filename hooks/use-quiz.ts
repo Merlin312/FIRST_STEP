@@ -38,7 +38,8 @@ interface State {
 }
 
 function createInitialState(wordPool: Word[]): State {
-  const queue = shuffle(wordPool);
+  const pool = wordPool.length > 0 ? wordPool : WORDS;
+  const queue = shuffle(pool);
   const currentWord = queue[0];
   return {
     queue,
@@ -72,7 +73,7 @@ function reinsertWord(queue: Word[], afterIndex: number, word: Word): Word[] {
 }
 
 export function useQuiz(category?: WordCategory) {
-  const wordPool = category ? WORDS_BY_CATEGORY[category] : WORDS;
+  const wordPool = category ? (WORDS_BY_CATEGORY[category] ?? WORDS) : WORDS;
   // Keep pool reference stable for callbacks
   const wordPoolRef = useRef(wordPool);
   const prevCategoryRef = useRef(category);

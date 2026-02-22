@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(echo:*)",
-      "Bash(java -version:*)"
+      "Bash(java -version:*)",
+      "Bash(ls:*)"
     ]
   }
 }

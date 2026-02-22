@@ -1,8 +1,5 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import {
-  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -27,31 +24,14 @@ import {
   PANEL_SPRING,
   SWIPE_THRESHOLD,
 } from '@/constants/ui';
-import { STORAGE_KEYS } from '@/constants/storage-keys';
 import { Blue, Colors } from '@/constants/theme';
 import type { WordCategory } from '@/constants/words';
 import { useAppTheme } from '@/contexts/theme-context';
 import { useStatsContext } from '@/contexts/stats-context';
 
-import { AuthSection } from '@/components/drawer/auth-section';
 import { SettingsSection } from '@/components/drawer/settings-section';
 import { StatsSection } from '@/components/drawer/stats-section';
-
-// Конфіг кастомних діалогів підтвердження (замінює Alert.alert, який не працює на вебі)
-type PendingAction = 'reset' | 'startOver' | null;
-
-const DIALOG_CONFIG = {
-  reset: {
-    title: 'Скинути статистику',
-    message: 'Весь прогрес буде видалено. Продовжити?',
-    confirm: 'Скинути',
-  },
-  startOver: {
-    title: 'Почати спочатку',
-    message: 'Статистика та налаштування будуть скинуті. Онбординг покажеться знову.',
-    confirm: 'Почати спочатку',
-  },
-} as const;
+import { UpcomingSection } from '@/components/drawer/upcoming-section';
 
 interface DrawerPanelProps {
   isOpen: boolean;
@@ -81,11 +61,8 @@ export function DrawerPanel({
   const palette = isDark ? Colors.dark : Colors.light;
   const insets = useSafeAreaInsets();
   const { width: screenWidth } = useWindowDimensions();
-  const router = useRouter();
 
-  const { totalAnswered, totalWrong, streak, accuracy, resetStats } = useStatsContext();
-
-  const [pendingAction, setPendingAction] = useState<PendingAction>(null);
+  const { totalAnswered, totalWrong, streak, accuracy } = useStatsContext();
 
   const translateX = useSharedValue(-DRAWER_WIDTH);
   const backdropOpacity = useSharedValue(0);
@@ -115,35 +92,6 @@ export function DrawerPanel({
       runOnJS(onClose)();
     }
   });
-
-  const handleResetStats = () => setPendingAction('reset');
-  const handleStartOver = () => setPendingAction('startOver');
-  const handleCancel = () => setPendingAction(null);
-
-  const handleViewTutorial = () => {
-    onClose();
-    router.replace('/onboarding');
-  };
-
-  const handleConfirm = async () => {
-    const action = pendingAction;
-    setPendingAction(null);
-    if (action === 'reset') {
-      await resetStats();
-      onResetQuiz?.();
-    } else if (action === 'startOver') {
-      await Promise.all([
-        resetStats(),
-        AsyncStorage.removeItem(STORAGE_KEYS.hasSeenOnboarding).catch(() => {}),
-        AsyncStorage.removeItem(STORAGE_KEYS.dailyGoal).catch(() => {}),
-        AsyncStorage.removeItem(STORAGE_KEYS.themeMode).catch(() => {}),
-        AsyncStorage.removeItem(STORAGE_KEYS.wordCategory).catch(() => {}),
-        AsyncStorage.removeItem(STORAGE_KEYS.autoAdvance).catch(() => {}),
-      ]);
-      onClose();
-      router.replace('/onboarding');
-    }
-  };
 
   return (
     <>
@@ -191,8 +139,6 @@ export function DrawerPanel({
           </View>
 
           <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
-            <AuthSection isDark={isDark} />
-            <Divider palette={palette} />
             <StatsSection
               isDark={isDark}
               todayCount={todayCount}
@@ -209,125 +155,14 @@ export function DrawerPanel({
               onCategoryChange={onCategoryChange}
               autoAdvance={autoAdvance}
               onAutoAdvanceChange={onAutoAdvanceChange}
+              onClose={onClose}
+              onResetQuiz={onResetQuiz}
             />
             <Divider palette={palette} />
-
-            {/* Tutorial */}
-            <View style={styles.section}>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.secondaryBtn,
-                  { borderColor: isDark ? Blue[600] : Blue[400] },
-                  pressed && { opacity: 0.7 },
-                ]}
-                onPress={handleViewTutorial}
-                accessibilityLabel="Переглянути туторіал"
-                accessibilityRole="button">
-                <Text
-                  style={[styles.secondaryBtnText, { color: isDark ? Blue[300] : Blue[600] }]}
-                  maxFontSizeMultiplier={1.2}>
-                  📖  Переглянути туторіал
-                </Text>
-              </Pressable>
-            </View>
-            <Divider palette={palette} />
-
-            {/* Danger Zone */}
-            <View style={styles.section}>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.dangerBtn,
-                  { borderColor: palette.surfaceBorder },
-                  pressed && styles.dangerBtnPressed,
-                ]}
-                onPress={handleResetStats}
-                accessibilityLabel="Скинути статистику"
-                accessibilityRole="button">
-                <Text
-                  style={[styles.dangerText, { color: palette.danger }]}
-                  maxFontSizeMultiplier={1.2}>
-                  🗑  Скинути статистику
-                </Text>
-              </Pressable>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.dangerBtn,
-                  { borderColor: palette.surfaceBorder },
-                  pressed && styles.dangerBtnPressed,
-                ]}
-                onPress={handleStartOver}
-                accessibilityLabel="Почати спочатку"
-                accessibilityRole="button">
-                <Text
-                  style={[styles.dangerText, { color: palette.danger }]}
-                  maxFontSizeMultiplier={1.2}>
-                  🔄  Почати спочатку
-                </Text>
-              </Pressable>
-            </View>
+            <UpcomingSection isDark={isDark} />
           </ScrollView>
         </Animated.View>
       </GestureDetector>
-
-      {/* Кастомний діалог підтвердження через Modal — гарантує рендер поверх усього */}
-      <Modal
-        visible={pendingAction !== null}
-        transparent
-        animationType="fade"
-        onRequestClose={handleCancel}
-        statusBarTranslucent>
-        <Pressable
-          style={styles.modalOverlay}
-          onPress={handleCancel}
-          accessibilityLabel="Скасувати">
-          {/* Вкладений Pressable на картці поглинає дотики, щоб не закривати діалог */}
-          <Pressable
-            style={[styles.dialogCard, { backgroundColor: palette.background }]}
-            onPress={() => {}}
-            accessibilityRole="none">
-            <Text
-              style={[styles.dialogTitle, { color: palette.text }]}
-              maxFontSizeMultiplier={1.2}>
-              {pendingAction ? DIALOG_CONFIG[pendingAction].title : ''}
-            </Text>
-            <Text
-              style={[styles.dialogMessage, { color: palette.mutedText }]}
-              maxFontSizeMultiplier={1.2}>
-              {pendingAction ? DIALOG_CONFIG[pendingAction].message : ''}
-            </Text>
-            <View style={styles.dialogActions}>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.dialogBtn,
-                  { borderColor: palette.surfaceBorder },
-                  pressed && { opacity: 0.7 },
-                ]}
-                onPress={handleCancel}
-                accessibilityRole="button">
-                <Text
-                  style={[styles.dialogBtnText, { color: palette.text }]}
-                  maxFontSizeMultiplier={1.2}>
-                  Скасувати
-                </Text>
-              </Pressable>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.dialogBtn,
-                  styles.dialogBtnDestructive,
-                  pressed && { opacity: 0.8 },
-                ]}
-                onPress={handleConfirm}
-                accessibilityRole="button">
-                <Text
-                  style={[styles.dialogBtnText, { color: '#fff' }]}
-                  maxFontSizeMultiplier={1.2}>
-                  {pendingAction ? DIALOG_CONFIG[pendingAction].confirm : ''}
-                </Text>
-              </Pressable>
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
     </>
   );
 }
@@ -377,83 +212,8 @@ const styles = StyleSheet.create({
   scroll: {
     flex: 1,
   },
-  section: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    gap: 10,
-  },
   divider: {
     height: 1,
     marginHorizontal: 20,
-  },
-  secondaryBtn: {
-    borderWidth: 1.5,
-    borderRadius: 10,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    alignItems: 'center',
-  },
-  secondaryBtnText: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  dangerBtn: {
-    borderWidth: 1.5,
-    borderRadius: 10,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    alignItems: 'center',
-  },
-  dangerBtnPressed: {
-    opacity: 0.65,
-  },
-  dangerText: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  // ─── Кастомний діалог ────────────────────────────────────────────────────────
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    justifyContent: 'center',
-    paddingHorizontal: 20,
-  },
-  dialogCard: {
-    borderRadius: 16,
-    padding: 24,
-    gap: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
-    elevation: 24,
-  },
-  dialogTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-  },
-  dialogMessage: {
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  dialogActions: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 4,
-  },
-  dialogBtn: {
-    flex: 1,
-    borderWidth: 1.5,
-    borderRadius: 10,
-    paddingVertical: 11,
-    alignItems: 'center',
-  },
-  dialogBtnDestructive: {
-    backgroundColor: '#ef4444',
-    borderColor: '#ef4444',
-  },
-  dialogBtnText: {
-    fontSize: 14,
-    fontWeight: '600',
   },
 });
