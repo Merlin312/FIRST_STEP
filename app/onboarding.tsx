@@ -3,7 +3,6 @@ import { useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   Pressable,
   StyleSheet,
@@ -202,12 +201,11 @@ export default function OnboardingScreen() {
         AsyncStorage.setItem(STORAGE_KEYS.hasSeenOnboarding, 'true'),
         AsyncStorage.setItem(STORAGE_KEYS.dailyGoal, String(selectedGoal)),
       ]);
-      router.replace('/(tabs)');
     } catch (e) {
-      console.warn('[onboarding] failed to save onboarding data', e);
-      Alert.alert('Помилка', 'Не вдалося зберегти налаштування. Спробуйте ще раз.');
-      setIsFinishing(false);
+      // Storage failure is non-fatal — proceed with defaults rather than blocking the user
+      console.warn('[onboarding] failed to save settings, proceeding with defaults', e);
     }
+    router.replace('/(tabs)');
   };
 
   const renderSlide = ({ item }: { item: SlideKey }) => {

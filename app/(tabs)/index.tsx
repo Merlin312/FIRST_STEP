@@ -56,19 +56,24 @@ export default function HomeScreen() {
   const isDark = colorScheme === 'dark';
   const palette = isDark ? Colors.dark : Colors.light;
 
-  const { todayCount, dailyGoal, addAnswer, reloadDailyGoal } = useStatsContext();
+  const { todayCount, dailyGoal, addAnswer, reloadDailyGoal, isLoaded } = useStatsContext();
   const { horizontalPadding } = useDevice();
   const drawer = useDrawer();
 
   const [showCelebration, setShowCelebration] = useState(false);
-  const celebrationShownRef = useRef(false);
+  // Stores the ISO date ('YYYY-MM-DD') when the celebration was last shown.
+  // Empty string means not shown yet today. Resets naturally when the date changes.
+  const celebrationShownDateRef = useRef('');
 
   // Load persisted quiz settings on mount
   useEffect(() => {
     AsyncStorage.multiGet([STORAGE_KEYS.wordCategory, STORAGE_KEYS.autoAdvance])
-      .then(([[, cat], [, adv]]) => {
+      .then((entries) => {
+        // Lookup by key — avoids relying on positional array order
+        const cat = entries.find(([k]) => k === STORAGE_KEYS.wordCategory)?.[1];
+        const adv = entries.find(([k]) => k === STORAGE_KEYS.autoAdvance)?.[1];
         if (cat) setCategory(cat as WordCategory);
-        if (adv !== null) setAutoAdvance(adv !== 'false');
+        if (adv !== null && adv !== undefined) setAutoAdvance(adv !== 'false');
       })
       .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -76,23 +81,31 @@ export default function HomeScreen() {
 
   const handleCategoryChange = useCallback(async (cat: WordCategory | undefined) => {
     setCategory(cat);
-    if (cat) {
-      await AsyncStorage.setItem(STORAGE_KEYS.wordCategory, cat);
-    } else {
-      await AsyncStorage.removeItem(STORAGE_KEYS.wordCategory);
+    try {
+      if (cat) {
+        await AsyncStorage.setItem(STORAGE_KEYS.wordCategory, cat);
+      } else {
+        await AsyncStorage.removeItem(STORAGE_KEYS.wordCategory);
+      }
+    } catch (e) {
+      console.warn('[home] failed to persist category', e);
     }
   }, []);
 
   const handleAutoAdvanceChange = useCallback(async (val: boolean) => {
     setAutoAdvance(val);
-    await AsyncStorage.setItem(STORAGE_KEYS.autoAdvance, String(val));
+    try {
+      await AsyncStorage.setItem(STORAGE_KEYS.autoAdvance, String(val));
+    } catch (e) {
+      console.warn('[home] failed to persist autoAdvance', e);
+    }
   }, []);
 
   // Re-read dailyGoal from storage on focus (picks up goal set during onboarding)
   useFocusEffect(
     useCallback(() => {
       reloadDailyGoal();
-      celebrationShownRef.current = false;
+      // Celebration tracking is date-based (celebrationShownDateRef), no reset needed here
     }, [reloadDailyGoal]),
   );
 
@@ -103,16 +116,16 @@ export default function HomeScreen() {
     return () => clearTimeout(timer);
   }, [readyToAdvance, nextWord, autoAdvance]);
 
-  // Show celebration modal when daily goal is first reached today
+  // Show celebration modal once per day when daily goal is first reached
   useEffect(() => {
-    if (celebrationShownRef.current) return;
-    if (dailyGoal > 0 && todayCount >= dailyGoal) {
-      const timer = setTimeout(() => {
-        setShowCelebration(true);
-        celebrationShownRef.current = true;
-      }, QUIZ_ADVANCE_DELAY_MS + 100);
-      return () => clearTimeout(timer);
-    }
+    if (dailyGoal <= 0 || todayCount < dailyGoal) return;
+    const today = new Date().toISOString().slice(0, 10);
+    if (celebrationShownDateRef.current === today) return; // already shown today
+    const timer = setTimeout(() => {
+      celebrationShownDateRef.current = today;
+      setShowCelebration(true);
+    }, QUIZ_ADVANCE_DELAY_MS + 100);
+    return () => clearTimeout(timer);
   }, [todayCount, dailyGoal]);
 
   // Animated progress bar
@@ -129,7 +142,7 @@ export default function HomeScreen() {
   }));
 
   const handleAnswer = (option: string) => {
-    if (selected !== null) return;
+    if (selected !== null || !isLoaded || !currentWord) return;
     const correct = option === currentWord.ua;
     selectAnswer(option);
     addAnswer(correct);
@@ -142,7 +155,7 @@ export default function HomeScreen() {
 
   const getButtonState = (option: string): ButtonState => {
     if (selected === null) return 'idle';
-    if (option === currentWord.ua) return 'correct';
+    if (option === currentWord?.ua) return 'correct';
     if (option === selected) return 'wrong';
     return 'disabled';
   };
@@ -243,7 +256,7 @@ export default function HomeScreen() {
               style={styles.wordText}
               adjustsFontSizeToFit
               numberOfLines={1}>
-              {currentWord.en}
+              {currentWord?.en ?? ''}
             </ThemedText>
             <Text
               style={[styles.queueLabel, { color: palette.mutedText }]}

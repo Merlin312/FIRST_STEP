@@ -208,6 +208,8 @@ interface StatsContextValue {
   resetStats: () => Promise<void>;
   /** Re-read dailyGoal from storage (call on screen focus after onboarding). */
   reloadDailyGoal: () => Promise<void>;
+  /** True once initial AsyncStorage load is complete. Guards against answering before data loads. */
+  isLoaded: boolean;
 }
 
 const StatsContext = createContext<StatsContextValue>({
@@ -224,6 +226,7 @@ const StatsContext = createContext<StatsContextValue>({
   setStreakCorrectOnly: () => {},
   resetStats: async () => {},
   reloadDailyGoal: async () => {},
+  isLoaded: false,
 });
 
 // ─── Provider ─────────────────────────────────────────────────────────────────
@@ -287,12 +290,12 @@ export function StatsProvider({ children }: { children: React.ReactNode }) {
       todayCorrect: state.todayCorrect,
       dailyGoal: state.dailyGoal,
       streakCorrectOnly: state.streakCorrectOnly,
+      isLoaded: state._loaded,
       addAnswer,
       setStreakCorrectOnly,
       resetStats,
       reloadDailyGoal,
     }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [
       state.totalAnswered,
       state.totalCorrect,
@@ -301,6 +304,11 @@ export function StatsProvider({ children }: { children: React.ReactNode }) {
       state.todayCorrect,
       state.dailyGoal,
       state.streakCorrectOnly,
+      state._loaded,
+      addAnswer,
+      setStreakCorrectOnly,
+      resetStats,
+      reloadDailyGoal,
     ],
   );
 

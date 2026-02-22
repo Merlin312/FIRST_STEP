@@ -93,16 +93,23 @@ export function SettingsSection({
     transform: [{ rotate: `${chevronAngle.value * 90}deg` }],
   }));
 
+  // Fallback height for the first toggle before onLayout has fired
+  const FALLBACK_CONTENT_HEIGHT = 420;
+
   const toggle = () => {
     const next = !isExpanded;
     setIsExpanded(next);
-    heightValue.value = withSpring(next ? contentHeight.current : 0, SPRING);
+    heightValue.value = withSpring(next ? (contentHeight.current || FALLBACK_CONTENT_HEIGHT) : 0, SPRING);
     chevronAngle.value = withSpring(next ? 1 : 0, SPRING);
   };
 
   const handleGoalChange = async (goal: number) => {
-    await AsyncStorage.setItem(STORAGE_KEYS.dailyGoal, String(goal));
-    reloadDailyGoal();
+    try {
+      await AsyncStorage.setItem(STORAGE_KEYS.dailyGoal, String(goal));
+      reloadDailyGoal();
+    } catch (e) {
+      console.warn('[settings] failed to persist daily goal', e);
+    }
   };
 
   const handleViewTutorial = () => {

@@ -83,7 +83,7 @@ export function DrawerPanel({
 
   const backdropStyle = useAnimatedStyle(() => ({
     opacity: backdropOpacity.value,
-    pointerEvents: isOpen ? 'auto' : 'none',
+    // pointerEvents is set via JSX prop below — not duplicated here
   }));
 
   // Swipe left to close the panel

@@ -57,7 +57,7 @@ export const Colors = {
     surface: Slate[800],
     surfaceBorder: Slate[700],
     mutedText: Slate[400],
-    subtleText: Slate[600],
+    subtleText: Slate[500],
     // Семантичні кольори стану
     success: '#86efac',
     danger: '#fca5a5',

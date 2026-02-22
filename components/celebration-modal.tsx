@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 
 import { Blue, Colors } from '@/constants/theme';
 import { useAppTheme } from '@/contexts/theme-context';
@@ -24,8 +24,9 @@ export function CelebrationModal({ visible, goal, onDismiss }: CelebrationModalP
       scale.value = withSpring(1, { damping: 14, stiffness: 220 });
       opacity.value = withSpring(1, { damping: 20, stiffness: 200 });
     } else {
-      scale.value = 0.8;
-      opacity.value = 0;
+      // Instant reset so the animation starts fresh on next open
+      scale.value = withTiming(0.8, { duration: 0 });
+      opacity.value = withTiming(0, { duration: 0 });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
@@ -42,7 +43,7 @@ export function CelebrationModal({ visible, goal, onDismiss }: CelebrationModalP
       animationType="fade"
       onRequestClose={onDismiss}
       statusBarTranslucent>
-      <Pressable style={styles.overlay} onPress={onDismiss} accessibilityLabel="Закрити">
+      <Pressable style={styles.overlay} onPress={onDismiss} accessibilityLabel="Закрити" accessibilityRole="button">
         <Pressable onPress={() => {}} accessibilityRole="none">
           <Animated.View
             style={[styles.card, { backgroundColor: palette.background }, cardStyle]}>

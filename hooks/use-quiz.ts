@@ -139,12 +139,23 @@ export function useQuiz(category?: WordCategory) {
     setState((prev) => {
       if (prev.selected !== null) return prev; // вже відповіли — нічого не робити
 
+      // Insert current word later in queue (no-op if queue is too short)
       const queue = reinsertWord(prev.queue, prev.queueIndex, prev.currentWord);
-      // After reinsertion, the slot at queueIndex is now the next word
-      const currentWord = queue[prev.queueIndex];
+
+      // Always advance to the next slot — skip means "show this word later, not now"
+      let nextIndex = prev.queueIndex + 1;
+      let nextQueue = queue;
+
+      if (nextIndex >= queue.length) {
+        nextQueue = shuffle(wordPoolRef.current);
+        nextIndex = 0;
+      }
+
+      const currentWord = nextQueue[nextIndex];
       return {
         ...prev,
-        queue,
+        queue: nextQueue,
+        queueIndex: nextIndex,
         currentWord,
         options: generateOptions(currentWord),
         selected: null,

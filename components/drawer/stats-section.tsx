@@ -49,9 +49,9 @@ export function StatsSection({
         📊  СТАТИСТИКА
       </Text>
       <StatRow label="За сьогодні" value={`${todayCount} / ${dailyGoal}`} isDark={isDark} />
-      <StatRow label="Всього слів" value={totalAnswered.toLocaleString()} isDark={isDark} />
+      <StatRow label="Всього слів" value={totalAnswered.toLocaleString('uk-UA')} isDark={isDark} />
       <StatRow label="Точність" value={`${accuracy}%`} isDark={isDark} />
-      <StatRow label="Неправильно" value={totalWrong.toLocaleString()} isDark={isDark} />
+      <StatRow label="Неправильно" value={totalWrong.toLocaleString('uk-UA')} isDark={isDark} />
       <StatRow label="Серія" value={`🔥 ${streak} ${pluralDays(streak)}`} isDark={isDark} />
     </View>
   );

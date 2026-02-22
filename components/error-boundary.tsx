@@ -1,4 +1,4 @@
-import { Component, type ReactNode } from 'react';
+import { Appearance, Component, type ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Blue, Colors } from '@/constants/theme';
@@ -9,12 +9,13 @@ interface Props {
 
 interface State {
   hasError: boolean;
+  retryCount: number;
 }
 
 export class ErrorBoundary extends Component<Props, State> {
-  state: State = { hasError: false };
+  state: State = { hasError: false, retryCount: 0 };
 
-  static getDerivedStateFromError(): State {
+  static getDerivedStateFromError(): Partial<State> {
     return { hasError: true };
   }
 
@@ -22,14 +23,27 @@ export class ErrorBoundary extends Component<Props, State> {
     console.error('[ErrorBoundary] Uncaught error:', error, info);
   }
 
+  handleRetry = () => {
+    // Incrementing retryCount remounts children via the key prop, giving React
+    // a clean slate instead of the potentially broken component subtree.
+    this.setState((prev) => ({ hasError: false, retryCount: prev.retryCount + 1 }));
+  };
+
   render() {
     if (this.state.hasError) {
+      // Appearance API is safe in class components — honours the user's current theme
+      const isDark = Appearance.getColorScheme() === 'dark';
+      const palette = isDark ? Colors.dark : Colors.light;
+
       return (
-        <View style={styles.container} accessibilityRole="alert">
-          <Text style={styles.text}>Щось пішло не так.</Text>
+        <View
+          style={[styles.container, { backgroundColor: palette.background }]}
+          accessibilityRole="alert"
+          accessibilityLiveRegion="assertive">
+          <Text style={[styles.text, { color: palette.danger }]}>Щось пішло не так.</Text>
           <Pressable
             style={({ pressed }) => [styles.retryBtn, pressed && { opacity: 0.7 }]}
-            onPress={() => this.setState({ hasError: false })}
+            onPress={this.handleRetry}
             accessibilityLabel="Спробувати знову"
             accessibilityRole="button">
             <Text style={styles.retryText}>Спробувати знову</Text>
@@ -37,11 +51,21 @@ export class ErrorBoundary extends Component<Props, State> {
         </View>
       );
     }
-    return this.props.children;
+
+    // key forces React to fully remount children after a retry,
+    // clearing the stale component state that caused the error.
+    return (
+      <View key={this.state.retryCount} style={styles.fill}>
+        {this.props.children}
+      </View>
+    );
   }
 }
 
 const styles = StyleSheet.create({
+  fill: {
+    flex: 1,
+  },
   container: {
     flex: 1,
     justifyContent: 'center',
@@ -51,7 +75,6 @@ const styles = StyleSheet.create({
   },
   text: {
     fontSize: 16,
-    color: Colors.light.danger,
     textAlign: 'center',
   },
   retryBtn: {
