@@ -12,4 +12,14 @@ export const STORAGE_KEYS = {
   celebrationShownDate: 'celebrationShownDate',
   /** Whether word pronunciation is enabled ('true' | 'false'). Default: true. */
   soundEnabled: 'soundEnabled',
+  /** Whether daily reminders are enabled ('true' | 'false'). Default: false. */
+  reminderEnabled: 'reminderEnabled',
+  /** Time of day for daily reminder in 'HH:MM' format, e.g. '09:00'. */
+  reminderTime: 'reminderTime',
+  /** ISO date ('YYYY-MM-DD') of the last day a reminder banner was shown. Prevents repeat shows. */
+  lastReminderDate: 'lastReminderDate',
+  /** ISO timestamp until which the reminder is snoozed. Null/absent = not snoozed. */
+  reminderSnoozedUntil: 'reminderSnoozedUntil',
+  /** expo-notifications identifier for the scheduled daily push notification. */
+  scheduledNotificationId: 'scheduledNotificationId',
 } as const;

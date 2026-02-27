@@ -8,6 +8,7 @@ import { Blue, Colors } from '@/constants/theme';
 import type { WordCategory } from '@/constants/words';
 import { useStatsContext } from '@/contexts/stats-context';
 import { type ThemeMode, useAppTheme } from '@/contexts/theme-context';
+import { REMINDER_TIME_PRESETS, type ReminderTimePreset } from '@/hooks/use-reminder-settings';
 
 type Palette = (typeof Colors)['light'] | (typeof Colors)['dark'];
 
@@ -50,6 +51,10 @@ export interface SettingsSectionProps {
   onAutoAdvanceChange: (val: boolean) => void;
   onClose: () => void;
   onResetQuiz?: () => void;
+  reminderEnabled: boolean;
+  reminderTime: ReminderTimePreset;
+  onReminderEnabledChange: (val: boolean) => Promise<void>;
+  onReminderTimeChange: (time: ReminderTimePreset) => Promise<void>;
 }
 
 export function SettingsSection({
@@ -60,6 +65,10 @@ export function SettingsSection({
   onAutoAdvanceChange,
   onClose,
   onResetQuiz,
+  reminderEnabled,
+  reminderTime,
+  onReminderEnabledChange,
+  onReminderTimeChange,
 }: SettingsSectionProps) {
   const palette: Palette = isDark ? Colors.dark : Colors.light;
   const { themeMode, setThemeMode } = useAppTheme();
@@ -222,6 +231,40 @@ export function SettingsSection({
             onValueChange={setStreakCorrectOnly}
             palette={palette}
           />
+        </CollapsibleCard>
+
+        {/* ─── Нагадування ─── */}
+        <CollapsibleCard
+          id="reminders"
+          label="🔔  Нагадування"
+          openSection={openSection}
+          onToggle={toggle}
+          palette={palette}>
+          <SwitchRow
+            label="Щоденне нагадування"
+            value={reminderEnabled}
+            onValueChange={onReminderEnabledChange}
+            palette={palette}
+          />
+          {reminderEnabled && (
+            <>
+              <RowLabel label="Час нагадування" palette={palette} />
+              <View style={styles.pillRow}>
+                {REMINDER_TIME_PRESETS.map(({ label, value }) => (
+                  <SelectPill
+                    key={value}
+                    label={label}
+                    active={reminderTime === value}
+                    isDark={isDark}
+                    palette={palette}
+                    flex
+                    onPress={() => onReminderTimeChange(value)}
+                    accessibilityLabel={`Нагадування: ${label}`}
+                  />
+                ))}
+              </View>
+            </>
+          )}
         </CollapsibleCard>
 
         {/* ─── Туторіал ─── */}

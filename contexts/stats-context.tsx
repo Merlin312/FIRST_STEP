@@ -193,6 +193,8 @@ interface StatsContextValue {
   accuracy: number;
   /** Consecutive active days */
   streak: number;
+  /** ISO date ('YYYY-MM-DD') of the last day the user answered. Empty string on first launch. */
+  lastActiveDate: string;
   /** Words answered today */
   todayCount: number;
   /** Correct answers today */
@@ -219,6 +221,7 @@ const StatsContext = createContext<StatsContextValue>({
   totalWrong: 0,
   accuracy: 0,
   streak: 0,
+  lastActiveDate: '',
   todayCount: 0,
   todayCorrect: 0,
   dailyGoal: 20,
@@ -285,6 +288,7 @@ export function StatsProvider({ children }: { children: React.ReactNode }) {
       accuracy:
         state.totalAnswered > 0 ? Math.round((state.totalCorrect / state.totalAnswered) * 100) : 0,
       streak: state.streak,
+      lastActiveDate: state.lastActiveDate,
       todayCount: state.todayCount,
       todayCorrect: state.todayCorrect,
       dailyGoal: state.dailyGoal,
@@ -299,6 +303,7 @@ export function StatsProvider({ children }: { children: React.ReactNode }) {
       state.totalAnswered,
       state.totalCorrect,
       state.streak,
+      state.lastActiveDate,
       state.todayCount,
       state.todayCorrect,
       state.dailyGoal,

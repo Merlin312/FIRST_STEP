@@ -1,4 +1,5 @@
 import Constants from 'expo-constants';
+import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import Animated, {
@@ -22,10 +23,10 @@ import { Blue, Colors } from '@/constants/theme';
 import type { WordCategory } from '@/constants/words';
 import { useAppTheme } from '@/contexts/theme-context';
 import { useStatsContext } from '@/contexts/stats-context';
+import type { ReminderTimePreset } from '@/hooks/use-reminder-settings';
 
 import { SettingsSection } from '@/components/drawer/settings-section';
 import { StatsSection } from '@/components/drawer/stats-section';
-import { UpcomingSection } from '@/components/drawer/upcoming-section';
 
 interface DrawerPanelProps {
   isOpen: boolean;
@@ -37,6 +38,10 @@ interface DrawerPanelProps {
   onCategoryChange: (cat: WordCategory | undefined) => void;
   autoAdvance: boolean;
   onAutoAdvanceChange: (val: boolean) => void;
+  reminderEnabled: boolean;
+  reminderTime: ReminderTimePreset;
+  onReminderEnabledChange: (val: boolean) => Promise<void>;
+  onReminderTimeChange: (time: ReminderTimePreset) => Promise<void>;
 }
 
 export function DrawerPanel({
@@ -49,12 +54,17 @@ export function DrawerPanel({
   onCategoryChange,
   autoAdvance,
   onAutoAdvanceChange,
+  reminderEnabled,
+  reminderTime,
+  onReminderEnabledChange,
+  onReminderTimeChange,
 }: DrawerPanelProps) {
   const { colorScheme } = useAppTheme();
   const isDark = colorScheme === 'dark';
   const palette = isDark ? Colors.dark : Colors.light;
   const insets = useSafeAreaInsets();
   const { width: screenWidth } = useWindowDimensions();
+  const router = useRouter();
 
   const { totalAnswered, totalWrong, streak, accuracy } = useStatsContext();
 
@@ -152,8 +162,6 @@ export function DrawerPanel({
               streak={streak}
             />
             <Divider palette={palette} />
-            <UpcomingSection isDark={isDark} />
-            <Divider palette={palette} />
             <Pressable
               style={({ pressed }) => [
                 styles.settingsToggle,
@@ -182,14 +190,36 @@ export function DrawerPanel({
                 onAutoAdvanceChange={onAutoAdvanceChange}
                 onClose={onClose}
                 onResetQuiz={onResetQuiz}
+                reminderEnabled={reminderEnabled}
+                reminderTime={reminderTime}
+                onReminderEnabledChange={onReminderEnabledChange}
+                onReminderTimeChange={onReminderTimeChange}
               />
             )}
           </ScrollView>
 
           {/* Footer */}
-          <Text style={[styles.footer, { color: palette.subtleText }]} maxFontSizeMultiplier={1.2}>
-            First Step v{Constants.expoConfig?.version ?? '1.0.0'}
-          </Text>
+          <View style={styles.footerContainer}>
+            <Text
+              style={[styles.footer, { color: palette.subtleText }]}
+              maxFontSizeMultiplier={1.2}>
+              First Step v{Constants.expoConfig?.version ?? '1.0.0'}
+            </Text>
+            <Pressable
+              onPress={() => {
+                onClose();
+                router.push('/privacy-policy');
+              }}
+              hitSlop={8}
+              accessibilityRole="link"
+              accessibilityLabel="Політика конфіденційності">
+              <Text
+                style={[styles.privacyLink, { color: isDark ? Blue[400] : Blue[600] }]}
+                maxFontSizeMultiplier={1.2}>
+                Політика конфіденційності
+              </Text>
+            </Pressable>
+          </View>
         </Animated.View>
       </GestureDetector>
     </>
@@ -252,7 +282,6 @@ const styles = StyleSheet.create({
   footer: {
     fontSize: 11,
     textAlign: 'center',
-    paddingVertical: 10,
   },
   settingsToggle: {
     flexDirection: 'row',
@@ -271,5 +300,14 @@ const styles = StyleSheet.create({
   },
   settingsChevron: {
     fontSize: 11,
+  },
+  footerContainer: {
+    alignItems: 'center',
+    paddingVertical: 10,
+    gap: 4,
+  },
+  privacyLink: {
+    fontSize: 11,
+    textDecorationLine: 'underline',
   },
 });

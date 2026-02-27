@@ -1,10 +1,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import * as Notifications from 'expo-notifications';
 import * as SplashScreen from 'expo-splash-screen';
 import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Platform, StyleSheet, View } from 'react-native';
 import 'react-native-reanimated';
 
 import { STORAGE_KEYS } from '@/constants/storage-keys';
@@ -12,6 +13,18 @@ import { Blue, Colors } from '@/constants/theme';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { AppThemeProvider, useAppTheme } from '@/contexts/theme-context';
 import { StatsProvider } from '@/contexts/stats-context';
+
+// Show notifications as banners when app is in foreground (iOS only — Android always shows them)
+if (Platform.OS !== 'web') {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowBanner: true,
+      shouldPlaySound: true,
+      shouldSetBadge: false,
+      shouldShowList: true,
+    }),
+  });
+}
 
 // Keep splash screen visible until the app is ready to show content
 SplashScreen.preventAutoHideAsync();
@@ -59,6 +72,7 @@ function RootLayoutInner() {
       <Stack>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="onboarding" options={{ headerShown: false }} />
+        <Stack.Screen name="privacy-policy" options={{ headerShown: false }} />
       </Stack>
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
     </ThemeProvider>

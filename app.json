@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "first_step",
+    "name": "First Step — англійські слова",
     "slug": "first_step",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -23,7 +23,8 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": ["VIBRATE", "POST_NOTIFICATIONS", "RECEIVE_BOOT_COMPLETED"]
     },
     "web": {
       "output": "static",
@@ -31,6 +32,14 @@
     },
     "plugins": [
       "expo-router",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#3b82f6",
+          "sounds": []
+        }
+      ],
       [
         "expo-splash-screen",
         {
@@ -44,6 +53,9 @@
         }
       ]
     ],
+    "extra": {
+      "privacyPolicyUrl": "https://YOUR_GITHUB_USERNAME.github.io/first_step/privacy-policy"
+    },
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true

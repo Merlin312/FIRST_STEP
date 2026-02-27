@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AnswerButton } from '@/components/answer-button';
 import { CelebrationModal } from '@/components/celebration-modal';
 import { DrawerPanel } from '@/components/drawer-panel';
+import { ReminderBanner } from '@/components/reminder-banner';
 import { ThemedText } from '@/components/themed-text';
 import {
   PROGRESS_BAR_TIMING_MS,
@@ -29,8 +30,11 @@ import { useAppTheme } from '@/contexts/theme-context';
 import { useStatsContext } from '@/contexts/stats-context';
 import { useDevice } from '@/hooks/use-device';
 import { useDrawer } from '@/hooks/use-drawer';
+import { usePushReminders } from '@/hooks/use-push-reminders';
 import { useQuiz } from '@/hooks/use-quiz';
+import { useReminderSettings } from '@/hooks/use-reminder-settings';
 import { useSound } from '@/hooks/use-sound';
+import { getReminderType } from '@/utils/reminder-logic';
 import type { ButtonState } from '@/components/answer-button';
 import { MaterialIcons } from '@expo/vector-icons';
 
@@ -57,10 +61,47 @@ export default function HomeScreen() {
   const isDark = colorScheme === 'dark';
   const palette = isDark ? Colors.dark : Colors.light;
 
-  const { todayCount, dailyGoal, addAnswer, reloadDailyGoal, isLoaded } = useStatsContext();
+  const { todayCount, dailyGoal, streak, lastActiveDate, addAnswer, reloadDailyGoal, isLoaded } =
+    useStatsContext();
   const { horizontalPadding } = useDevice();
   const drawer = useDrawer();
   const { soundEnabled, speak, toggleSound } = useSound();
+
+  const reminder = useReminderSettings();
+  const { requestPermissions, scheduleDaily, cancelScheduled } = usePushReminders();
+
+  const reminderType = reminder.isLoaded
+    ? getReminderType({
+        reminderEnabled: reminder.reminderEnabled,
+        lastReminderDate: reminder.lastReminderDate,
+        snoozedUntil: reminder.snoozedUntil,
+        todayCount,
+        dailyGoal,
+        streak,
+        lastActiveDate,
+      })
+    : null;
+
+  const handleReminderEnabledChange = useCallback(
+    async (val: boolean) => {
+      await reminder.setReminderEnabled(val);
+      if (val) {
+        const granted = await requestPermissions();
+        if (granted) await scheduleDaily(reminder.reminderTime);
+      } else {
+        await cancelScheduled();
+      }
+    },
+    [reminder, requestPermissions, scheduleDaily, cancelScheduled],
+  );
+
+  const handleReminderTimeChange = useCallback(
+    async (time: Parameters<typeof reminder.setReminderTime>[0]) => {
+      await reminder.setReminderTime(time);
+      if (reminder.reminderEnabled) await scheduleDaily(time);
+    },
+    [reminder, scheduleDaily],
+  );
 
   const [showCelebration, setShowCelebration] = useState(false);
   // Stores the ISO date ('YYYY-MM-DD') when the celebration was last shown.
@@ -202,6 +243,10 @@ export default function HomeScreen() {
           onCategoryChange={handleCategoryChange}
           autoAdvance={autoAdvance}
           onAutoAdvanceChange={handleAutoAdvanceChange}
+          reminderEnabled={reminder.reminderEnabled}
+          reminderTime={reminder.reminderTime}
+          onReminderEnabledChange={handleReminderEnabledChange}
+          onReminderTimeChange={handleReminderTimeChange}
         />
 
         {/* Main content — padded responsively */}
@@ -262,6 +307,18 @@ export default function HomeScreen() {
               {todayCount} / {dailyGoal} слів сьогодні
             </Text>
           </View>
+
+          {/* Reminder banner */}
+          {reminderType && !drawer.isOpen && (
+            <ReminderBanner
+              type={reminderType}
+              streak={streak}
+              dailyGoal={dailyGoal}
+              isDark={isDark}
+              onDismiss={reminder.dismissForToday}
+              onSnooze={() => reminder.snooze(2)}
+            />
+          )}
 
           {/* Word card — tap to pronounce */}
           <Pressable

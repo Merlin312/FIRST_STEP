@@ -1,5 +1,12 @@
 {
   "permissions": {
-    "allow": ["Bash(echo:*)", "Bash(java -version:*)", "Bash(ls:*)", "Bash(npm install:*)"]
+    "allow": [
+      "Bash(echo:*)",
+      "Bash(java -version:*)",
+      "Bash(ls:*)",
+      "Bash(npm install:*)",
+      "Bash(npx expo lint:*)",
+      "Bash(npx eslint:*)"
+    ]
   }
 }
