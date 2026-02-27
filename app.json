@@ -9,9 +9,13 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.firststep.app",
+      "buildNumber": "1"
     },
     "android": {
+      "package": "com.firststep.app",
+      "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#dbeafe",
         "foregroundImage": "./assets/images/android-icon-foreground.png",

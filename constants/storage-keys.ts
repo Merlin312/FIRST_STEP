@@ -10,4 +10,6 @@ export const STORAGE_KEYS = {
   autoAdvance: 'autoAdvance',
   /** ISO date ('YYYY-MM-DD') of the last day the celebration modal was shown. */
   celebrationShownDate: 'celebrationShownDate',
+  /** Whether word pronunciation is enabled ('true' | 'false'). Default: true. */
+  soundEnabled: 'soundEnabled',
 } as const;

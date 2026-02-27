@@ -1,12 +1,6 @@
-import { useEffect } from 'react';
-import {
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  useWindowDimensions,
-  View,
-} from 'react-native';
+import Constants from 'expo-constants';
+import { useEffect, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import Animated, {
   runOnJS,
   useAnimatedStyle,
@@ -63,6 +57,8 @@ export function DrawerPanel({
   const { width: screenWidth } = useWindowDimensions();
 
   const { totalAnswered, totalWrong, streak, accuracy } = useStatsContext();
+
+  const [showSettings, setShowSettings] = useState(false);
 
   const translateX = useSharedValue(-DRAWER_WIDTH);
   const backdropOpacity = useSharedValue(0);
@@ -121,11 +117,18 @@ export function DrawerPanel({
           ]}>
           {/* Header */}
           <View style={styles.panelHeader}>
-            <Text
-              style={[styles.panelTitle, { color: palette.text }]}
-              maxFontSizeMultiplier={1.2}>
-              First Step
-            </Text>
+            <View>
+              <Text
+                style={[styles.panelTitle, { color: palette.text }]}
+                maxFontSizeMultiplier={1.2}>
+                First Step
+              </Text>
+              <Text
+                style={[styles.panelSubtitle, { color: palette.subtleText }]}
+                maxFontSizeMultiplier={1.2}>
+                Гостьовий режим
+              </Text>
+            </View>
             <Pressable
               style={({ pressed }) => [styles.closeBtn, pressed && { opacity: 0.6 }]}
               onPress={onClose}
@@ -149,18 +152,44 @@ export function DrawerPanel({
               streak={streak}
             />
             <Divider palette={palette} />
-            <SettingsSection
-              isDark={isDark}
-              category={category}
-              onCategoryChange={onCategoryChange}
-              autoAdvance={autoAdvance}
-              onAutoAdvanceChange={onAutoAdvanceChange}
-              onClose={onClose}
-              onResetQuiz={onResetQuiz}
-            />
-            <Divider palette={palette} />
             <UpcomingSection isDark={isDark} />
+            <Divider palette={palette} />
+            <Pressable
+              style={({ pressed }) => [
+                styles.settingsToggle,
+                { borderColor: palette.surfaceBorder, backgroundColor: palette.surface },
+                pressed && { opacity: 0.7 },
+              ]}
+              onPress={() => setShowSettings((v) => !v)}
+              accessibilityLabel="Налаштування"
+              accessibilityRole="button"
+              accessibilityState={{ expanded: showSettings }}>
+              <Text
+                style={[styles.settingsToggleText, { color: palette.text }]}
+                maxFontSizeMultiplier={1.2}>
+                ⚙️ Налаштування
+              </Text>
+              <Text style={[styles.settingsChevron, { color: palette.subtleText }]}>
+                {showSettings ? '▲' : '▼'}
+              </Text>
+            </Pressable>
+            {showSettings && (
+              <SettingsSection
+                isDark={isDark}
+                category={category}
+                onCategoryChange={onCategoryChange}
+                autoAdvance={autoAdvance}
+                onAutoAdvanceChange={onAutoAdvanceChange}
+                onClose={onClose}
+                onResetQuiz={onResetQuiz}
+              />
+            )}
           </ScrollView>
+
+          {/* Footer */}
+          <Text style={[styles.footer, { color: palette.subtleText }]} maxFontSizeMultiplier={1.2}>
+            First Step v{Constants.expoConfig?.version ?? '1.0.0'}
+          </Text>
         </Animated.View>
       </GestureDetector>
     </>
@@ -202,6 +231,10 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700',
   },
+  panelSubtitle: {
+    fontSize: 12,
+    marginTop: 1,
+  },
   closeBtn: {
     padding: 4,
   },
@@ -215,5 +248,28 @@ const styles = StyleSheet.create({
   divider: {
     height: 1,
     marginHorizontal: 20,
+  },
+  footer: {
+    fontSize: 11,
+    textAlign: 'center',
+    paddingVertical: 10,
+  },
+  settingsToggle: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginHorizontal: 20,
+    marginVertical: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderRadius: 12,
+  },
+  settingsToggleText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  settingsChevron: {
+    fontSize: 11,
   },
 });

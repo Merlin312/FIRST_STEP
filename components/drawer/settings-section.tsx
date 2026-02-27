@@ -1,21 +1,13 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
-import { useRef, useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
+import { type ReactNode, useState } from 'react';
+import { Modal, Pressable, StyleSheet, Switch, Text, View, ViewStyle } from 'react-native';
 
 import { STORAGE_KEYS } from '@/constants/storage-keys';
 import { Blue, Colors } from '@/constants/theme';
 import type { WordCategory } from '@/constants/words';
 import { useStatsContext } from '@/contexts/stats-context';
 import { type ThemeMode, useAppTheme } from '@/contexts/theme-context';
-
-const SPRING = {
-  damping: 32,
-  stiffness: 280,
-  mass: 0.85,
-  overshootClamping: true,
-} as const;
 
 type Palette = (typeof Colors)['light'] | (typeof Colors)['dark'];
 
@@ -75,33 +67,10 @@ export function SettingsSection({
     useStatsContext();
   const router = useRouter();
 
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [openSection, setOpenSection] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<PendingAction>(null);
-  const contentHeight = useRef(0);
-  const heightValue = useSharedValue(0);
-  const chevronAngle = useSharedValue(0);
 
-  const animatedHeight = useAnimatedStyle(() => ({
-    height: heightValue.value,
-    overflow: 'hidden',
-  }));
-
-  const chevronStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: `${chevronAngle.value * 90}deg` }],
-  }));
-
-  // Fallback height for the first toggle before onLayout has fired
-  const FALLBACK_CONTENT_HEIGHT = 420;
-
-  const toggle = () => {
-    const next = !isExpanded;
-    setIsExpanded(next);
-    heightValue.value = withSpring(
-      next ? contentHeight.current || FALLBACK_CONTENT_HEIGHT : 0,
-      SPRING,
-    );
-    chevronAngle.value = withSpring(next ? 1 : 0, SPRING);
-  };
+  const toggle = (key: string) => setOpenSection((prev) => (prev === key ? null : key));
 
   const handleGoalChange = async (goal: number) => {
     try {
@@ -144,211 +113,179 @@ export function SettingsSection({
   return (
     <>
       <View style={styles.wrapper}>
-        {/* Header — always visible */}
+        <Text style={[styles.sectionLabel, { color: palette.mutedText }]}>⚙️ НАЛАШТУВАННЯ</Text>
+
+        {/* ─── Тема ─── */}
+        <CollapsibleCard
+          id="theme"
+          label="🎨  Тема"
+          openSection={openSection}
+          onToggle={toggle}
+          palette={palette}>
+          <View style={styles.pillRow}>
+            {THEME_OPTIONS.map(({ label, value }) => (
+              <SelectPill
+                key={value}
+                label={label}
+                active={themeMode === value}
+                isDark={isDark}
+                palette={palette}
+                flex
+                onPress={() => setThemeMode(value)}
+                accessibilityLabel={`Тема: ${label}`}
+              />
+            ))}
+          </View>
+        </CollapsibleCard>
+
+        {/* ─── Мова ─── */}
+        <CollapsibleCard
+          id="language"
+          label="🌐  Мова перекладу"
+          openSection={openSection}
+          onToggle={toggle}
+          palette={palette}>
+          <View
+            style={[
+              styles.langRow,
+              { backgroundColor: palette.background, borderColor: palette.surfaceBorder },
+            ]}>
+            <Text style={[styles.langText, { color: palette.text }]} maxFontSizeMultiplier={1.2}>
+              🇺🇦 Українська
+            </Text>
+            <Text style={{ color: Blue[500] }}>✓</Text>
+          </View>
+          <View style={[styles.addLangBtn, { borderColor: palette.surfaceBorder }]}>
+            <Text
+              style={[styles.addLangText, { color: palette.subtleText }]}
+              maxFontSizeMultiplier={1.2}>
+              + Додати мову (скоро)
+            </Text>
+          </View>
+        </CollapsibleCard>
+
+        {/* ─── Квіз ─── */}
+        <CollapsibleCard
+          id="quiz"
+          label="📚  Квіз"
+          openSection={openSection}
+          onToggle={toggle}
+          palette={palette}>
+          <RowLabel label="Щоденна ціль" palette={palette} />
+          <View style={styles.pillRow}>
+            {GOAL_OPTIONS.map((g) => (
+              <SelectPill
+                key={g}
+                label={String(g)}
+                active={dailyGoal === g}
+                isDark={isDark}
+                palette={palette}
+                flex
+                onPress={() => handleGoalChange(g)}
+                accessibilityLabel={`Ціль ${g} слів на день`}
+              />
+            ))}
+          </View>
+          <RowLabel label="Категорія слів" palette={palette} />
+          <View style={[styles.pillRow, styles.pillRowWrap]}>
+            {CATEGORY_OPTIONS.map(({ label, value }) => (
+              <SelectPill
+                key={label}
+                label={label}
+                active={category === value}
+                isDark={isDark}
+                palette={palette}
+                flex={false}
+                onPress={() => onCategoryChange(value)}
+                accessibilityLabel={`Категорія: ${label}`}
+              />
+            ))}
+          </View>
+          <SwitchRow
+            label="Автоперехід"
+            value={autoAdvance}
+            onValueChange={onAutoAdvanceChange}
+            palette={palette}
+          />
+        </CollapsibleCard>
+
+        {/* ─── Серія ─── */}
+        <CollapsibleCard
+          id="streak"
+          label="🔥  Серія"
+          openSection={openSection}
+          onToggle={toggle}
+          palette={palette}>
+          <SwitchRow
+            label="Тільки правильні"
+            value={streakCorrectOnly}
+            onValueChange={setStreakCorrectOnly}
+            palette={palette}
+          />
+        </CollapsibleCard>
+
+        {/* ─── Туторіал ─── */}
         <Pressable
-          style={({ pressed }) => [styles.header, pressed && { opacity: 0.7 }]}
-          onPress={toggle}
-          accessibilityLabel="Налаштування"
-          accessibilityRole="button"
-          accessibilityState={{ expanded: isExpanded }}>
+          style={({ pressed }) => [
+            styles.tutorialBtn,
+            { borderColor: isDark ? Blue[600] : Blue[400] },
+            pressed && { opacity: 0.7 },
+          ]}
+          onPress={handleViewTutorial}
+          accessibilityLabel="Переглянути туторіал"
+          accessibilityRole="button">
           <Text
-            style={[styles.headerLabel, { color: palette.mutedText }]}
+            style={[styles.tutorialBtnText, { color: isDark ? Blue[300] : Blue[600] }]}
             maxFontSizeMultiplier={1.2}>
-            ⚙️ НАЛАШТУВАННЯ
+            📖 Переглянути туторіал
           </Text>
-          <Animated.View style={chevronStyle}>
-            <Text style={[styles.chevron, { color: palette.mutedText }]}>›</Text>
-          </Animated.View>
         </Pressable>
 
-        {/* Expandable body */}
-        <Animated.View style={animatedHeight}>
-          <View
-            onLayout={(e) => {
-              const h = e.nativeEvent.layout.height;
-              if (h > 0) contentHeight.current = h;
-            }}>
-            {/* ─── Вигляд ─── */}
-            <InnerDivider palette={palette} />
-            <SubLabel label="🎨  Тема" palette={palette} />
-            <View style={styles.pillRow}>
-              {THEME_OPTIONS.map(({ label, value }) => (
-                <SelectPill
-                  key={value}
-                  label={label}
-                  active={themeMode === value}
-                  isDark={isDark}
-                  palette={palette}
-                  flex
-                  onPress={() => setThemeMode(value)}
-                  accessibilityLabel={`Тема: ${label}`}
-                />
-              ))}
-            </View>
-
-            {/* ─── Мова ─── */}
-            <InnerDivider palette={palette} />
-            <SubLabel label="🌐  МОВА ПЕРЕКЛАДУ" palette={palette} />
-            <View
-              style={[
-                styles.langRow,
-                { backgroundColor: palette.surface, borderColor: palette.surfaceBorder },
-              ]}>
-              <Text style={[styles.langText, { color: palette.text }]} maxFontSizeMultiplier={1.2}>
-                🇺🇦 Українська
-              </Text>
-              <Text style={{ color: Blue[500] }}>✓</Text>
-            </View>
-            <View style={[styles.addLangBtn, { borderColor: palette.surfaceBorder }]}>
-              <Text
-                style={[styles.addLangText, { color: palette.subtleText }]}
-                maxFontSizeMultiplier={1.2}>
-                + Додати мову (скоро)
-              </Text>
-            </View>
-
-            {/* ─── Квіз ─── */}
-            <InnerDivider palette={palette} />
-            <SubLabel label="📚  КВІЗ" palette={palette} />
-
-            <RowLabel label="Щоденна ціль" palette={palette} />
-            <View style={styles.pillRow}>
-              {GOAL_OPTIONS.map((g) => (
-                <SelectPill
-                  key={g}
-                  label={String(g)}
-                  active={dailyGoal === g}
-                  isDark={isDark}
-                  palette={palette}
-                  flex
-                  onPress={() => handleGoalChange(g)}
-                  accessibilityLabel={`Ціль ${g} слів на день`}
-                />
-              ))}
-            </View>
-
-            <RowLabel label="Категорія слів" palette={palette} />
-            <View style={[styles.pillRow, styles.pillRowWrap]}>
-              {CATEGORY_OPTIONS.map(({ label, value }) => (
-                <SelectPill
-                  key={label}
-                  label={label}
-                  active={category === value}
-                  isDark={isDark}
-                  palette={palette}
-                  flex={false}
-                  onPress={() => onCategoryChange(value)}
-                  accessibilityLabel={`Категорія: ${label}`}
-                />
-              ))}
-            </View>
-
-            <RowLabel label="Автоперехід" palette={palette} />
-            <View style={styles.pillRow}>
-              <SelectPill
-                label="Авто"
-                active={autoAdvance}
-                isDark={isDark}
-                palette={palette}
-                flex
-                onPress={() => onAutoAdvanceChange(true)}
-                accessibilityLabel="Автоматичний перехід до наступного слова"
-              />
-              <SelectPill
-                label="Вручну"
-                active={!autoAdvance}
-                isDark={isDark}
-                palette={palette}
-                flex
-                onPress={() => onAutoAdvanceChange(false)}
-                accessibilityLabel="Перехід до наступного слова вручну"
-              />
-            </View>
-
-            {/* ─── Серія ─── */}
-            <InnerDivider palette={palette} />
-            <SubLabel label="🔥  СЕРІЯ" palette={palette} />
-
-            <RowLabel label="Зараховувати відповіді" palette={palette} />
-            <View style={styles.pillRow}>
-              <SelectPill
-                label="Будь-які"
-                active={!streakCorrectOnly}
-                isDark={isDark}
-                palette={palette}
-                flex
-                onPress={() => setStreakCorrectOnly(false)}
-                accessibilityLabel="Серія зараховується за будь-яку відповідь"
-              />
-              <SelectPill
-                label="Правильні"
-                active={streakCorrectOnly}
-                isDark={isDark}
-                palette={palette}
-                flex
-                onPress={() => setStreakCorrectOnly(true)}
-                accessibilityLabel="Серія зараховується тільки за правильні відповіді"
-              />
-            </View>
-
-            {/* ─── Туторіал ─── */}
-            <InnerDivider palette={palette} />
-            <Pressable
-              style={({ pressed }) => [
-                styles.secondaryBtn,
-                { borderColor: isDark ? Blue[600] : Blue[400] },
-                pressed && { opacity: 0.7 },
-              ]}
-              onPress={handleViewTutorial}
-              accessibilityLabel="Переглянути туторіал"
-              accessibilityRole="button">
-              <Text
-                style={[styles.secondaryBtnText, { color: isDark ? Blue[300] : Blue[600] }]}
-                maxFontSizeMultiplier={1.2}>
-                📖 Переглянути туторіал
-              </Text>
-            </Pressable>
-
-            {/* ─── Небезпечна зона ─── */}
-            <InnerDivider palette={palette} />
-            <SubLabel label="⚠️  НЕБЕЗПЕЧНА ЗОНА" palette={palette} />
-            <View style={[styles.dangerGroup, { marginBottom: 4 }]}>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.dangerBtn,
-                  { borderColor: palette.surfaceBorder },
-                  pressed && styles.dangerBtnPressed,
-                ]}
-                onPress={handleResetStats}
-                accessibilityLabel="Скинути статистику"
-                accessibilityRole="button">
-                <Text
-                  style={[styles.dangerText, { color: palette.danger }]}
-                  maxFontSizeMultiplier={1.2}>
-                  🗑 Скинути статистику
-                </Text>
-              </Pressable>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.dangerBtn,
-                  { borderColor: palette.surfaceBorder },
-                  pressed && styles.dangerBtnPressed,
-                ]}
-                onPress={handleStartOver}
-                accessibilityLabel="Почати спочатку"
-                accessibilityRole="button">
-                <Text
-                  style={[styles.dangerText, { color: palette.danger }]}
-                  maxFontSizeMultiplier={1.2}>
-                  🔄 Почати спочатку
-                </Text>
-              </Pressable>
-            </View>
-          </View>
-        </Animated.View>
+        {/* ─── Небезпечна зона ─── */}
+        <CollapsibleCard
+          id="danger"
+          label="⚠️  Небезпечна зона"
+          openSection={openSection}
+          onToggle={toggle}
+          palette={palette}
+          cardStyle={{
+            backgroundColor: isDark ? 'rgba(239, 68, 68, 0.08)' : 'rgba(239, 68, 68, 0.06)',
+            borderColor: isDark ? 'rgba(239, 68, 68, 0.35)' : 'rgba(239, 68, 68, 0.25)',
+          }}>
+          <Pressable
+            style={({ pressed }) => [
+              styles.dangerBtn,
+              { borderColor: isDark ? 'rgba(239, 68, 68, 0.4)' : 'rgba(239, 68, 68, 0.3)' },
+              pressed && styles.dangerBtnPressed,
+            ]}
+            onPress={handleResetStats}
+            accessibilityLabel="Скинути статистику"
+            accessibilityRole="button">
+            <Text
+              style={[styles.dangerText, { color: palette.danger }]}
+              maxFontSizeMultiplier={1.2}>
+              🗑 Скинути статистику
+            </Text>
+          </Pressable>
+          <Pressable
+            style={({ pressed }) => [
+              styles.dangerBtn,
+              { borderColor: isDark ? 'rgba(239, 68, 68, 0.4)' : 'rgba(239, 68, 68, 0.3)' },
+              pressed && styles.dangerBtnPressed,
+            ]}
+            onPress={handleStartOver}
+            accessibilityLabel="Почати спочатку"
+            accessibilityRole="button">
+            <Text
+              style={[styles.dangerText, { color: palette.danger }]}
+              maxFontSizeMultiplier={1.2}>
+              🔄 Почати спочатку
+            </Text>
+          </Pressable>
+        </CollapsibleCard>
       </View>
 
-      {/* Кастомний діалог підтвердження через Modal — гарантує рендер поверх усього */}
+      {/* Кастомний діалог підтвердження через Modal */}
       <Modal
         visible={pendingAction !== null}
         transparent
@@ -359,7 +296,6 @@ export function SettingsSection({
           style={styles.modalOverlay}
           onPress={handleCancel}
           accessibilityLabel="Скасувати">
-          {/* Вкладений Pressable на картці поглинає дотики, щоб не закривати діалог */}
           <Pressable
             style={[styles.dialogCard, { backgroundColor: palette.background }]}
             onPress={() => {}}
@@ -409,15 +345,47 @@ export function SettingsSection({
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function InnerDivider({ palette }: { palette: Palette }) {
-  return <View style={[styles.innerDivider, { backgroundColor: palette.surfaceBorder }]} />;
-}
-
-function SubLabel({ label, palette }: { label: string; palette: Palette }) {
+function CollapsibleCard({
+  id,
+  label,
+  openSection,
+  onToggle,
+  palette,
+  cardStyle,
+  children,
+}: {
+  id: string;
+  label: string;
+  openSection: string | null;
+  onToggle: (key: string) => void;
+  palette: Palette;
+  cardStyle?: ViewStyle;
+  children: ReactNode;
+}) {
+  const isOpen = openSection === id;
   return (
-    <Text style={[styles.subLabel, { color: palette.mutedText }]} maxFontSizeMultiplier={1.2}>
-      {label}
-    </Text>
+    <View
+      style={[
+        styles.groupCard,
+        { backgroundColor: palette.surface, borderColor: palette.surfaceBorder },
+        cardStyle,
+      ]}>
+      <Pressable
+        style={({ pressed }) => [styles.cardHeader, pressed && { opacity: 0.7 }]}
+        onPress={() => onToggle(id)}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: isOpen }}>
+        <Text style={[styles.subLabel, { color: palette.mutedText }]} maxFontSizeMultiplier={1.2}>
+          {label}
+        </Text>
+        <Text style={[styles.chevron, { color: palette.subtleText }]}>{isOpen ? '▲' : '▼'}</Text>
+      </Pressable>
+      {isOpen && (
+        <View style={[styles.cardContent, { borderTopColor: palette.surfaceBorder }]}>
+          {children}
+        </View>
+      )}
+    </View>
   );
 }
 
@@ -426,6 +394,33 @@ function RowLabel({ label, palette }: { label: string; palette: Palette }) {
     <Text style={[styles.rowLabelText, { color: palette.mutedText }]} maxFontSizeMultiplier={1.2}>
       {label}
     </Text>
+  );
+}
+
+function SwitchRow({
+  label,
+  value,
+  onValueChange,
+  palette,
+}: {
+  label: string;
+  value: boolean;
+  onValueChange: (v: boolean) => void;
+  palette: Palette;
+}) {
+  return (
+    <View style={styles.switchRow}>
+      <Text style={[styles.switchLabel, { color: palette.text }]} maxFontSizeMultiplier={1.2}>
+        {label}
+      </Text>
+      <Switch
+        value={value}
+        onValueChange={onValueChange}
+        trackColor={{ false: palette.surfaceBorder, true: Blue[500] }}
+        thumbColor="#ffffff"
+        ios_backgroundColor={palette.surfaceBorder}
+      />
+    </View>
   );
 }
 
@@ -452,7 +447,7 @@ function SelectPill({
         styles.pill,
         flex && { flex: 1 },
         {
-          backgroundColor: active ? Blue[600] : palette.surface,
+          backgroundColor: active ? Blue[600] : palette.background,
           borderColor: active ? Blue[600] : palette.surfaceBorder,
         },
         pressed && !active && { opacity: 0.7 },
@@ -476,41 +471,46 @@ const styles = StyleSheet.create({
   wrapper: {
     paddingHorizontal: 20,
     paddingVertical: 16,
+    gap: 8,
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  headerLabel: {
+  sectionLabel: {
     fontSize: 11,
     fontWeight: '700',
     letterSpacing: 0.8,
     textTransform: 'uppercase',
+    marginBottom: 2,
+    paddingHorizontal: 2,
   },
-  chevron: {
-    fontSize: 20,
-    lineHeight: 22,
-    fontWeight: '400',
+  groupCard: {
+    borderWidth: 1,
+    borderRadius: 12,
+    overflow: 'hidden',
   },
-  innerDivider: {
-    height: 1,
-    marginTop: 14,
-    marginBottom: 12,
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+  },
+  cardContent: {
+    borderTopWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 8,
   },
   subLabel: {
     fontSize: 11,
     fontWeight: '700',
     letterSpacing: 0.8,
     textTransform: 'uppercase',
-    marginBottom: 8,
+  },
+  chevron: {
+    fontSize: 10,
   },
   rowLabelText: {
     fontSize: 12,
     fontWeight: '500',
-    marginTop: 8,
-    marginBottom: 6,
-    color: 'transparent', // overridden by inline style
   },
   pillRow: {
     flexDirection: 'row',
@@ -530,6 +530,16 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
   },
+  switchRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    minHeight: 36,
+  },
+  switchLabel: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
   // Language subsection
   langRow: {
     flexDirection: 'row',
@@ -539,7 +549,6 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingVertical: 10,
     paddingHorizontal: 14,
-    marginBottom: 6,
   },
   langText: {
     fontSize: 14,
@@ -556,23 +565,20 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   // Tutorial button
-  secondaryBtn: {
+  tutorialBtn: {
     borderWidth: 1.5,
     borderRadius: 10,
     paddingVertical: 12,
     paddingHorizontal: 16,
     alignItems: 'center',
   },
-  secondaryBtnText: {
+  tutorialBtnText: {
     fontSize: 14,
     fontWeight: '500',
   },
-  // Danger zone
-  dangerGroup: {
-    gap: 10,
-  },
+  // Danger zone buttons
   dangerBtn: {
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderRadius: 10,
     paddingVertical: 12,
     paddingHorizontal: 16,

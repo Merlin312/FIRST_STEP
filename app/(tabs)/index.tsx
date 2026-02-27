@@ -30,7 +30,9 @@ import { useStatsContext } from '@/contexts/stats-context';
 import { useDevice } from '@/hooks/use-device';
 import { useDrawer } from '@/hooks/use-drawer';
 import { useQuiz } from '@/hooks/use-quiz';
+import { useSound } from '@/hooks/use-sound';
 import type { ButtonState } from '@/components/answer-button';
+import { MaterialIcons } from '@expo/vector-icons';
 
 export default function HomeScreen() {
   const [category, setCategory] = useState<WordCategory | undefined>(undefined);
@@ -40,7 +42,6 @@ export default function HomeScreen() {
     currentWord,
     options,
     selected,
-    isCorrect,
     readyToAdvance,
     hint,
     queueIndex,
@@ -59,6 +60,7 @@ export default function HomeScreen() {
   const { todayCount, dailyGoal, addAnswer, reloadDailyGoal, isLoaded } = useStatsContext();
   const { horizontalPadding } = useDevice();
   const drawer = useDrawer();
+  const { soundEnabled, speak, toggleSound } = useSound();
 
   const [showCelebration, setShowCelebration] = useState(false);
   // Stores the ISO date ('YYYY-MM-DD') when the celebration was last shown.
@@ -82,7 +84,6 @@ export default function HomeScreen() {
         if (cel) celebrationShownDateRef.current = cel;
       })
       .catch(() => {});
-     
   }, []);
 
   const handleCategoryChange = useCallback(async (cat: WordCategory | undefined) => {
@@ -134,6 +135,13 @@ export default function HomeScreen() {
     }, QUIZ_ADVANCE_DELAY_MS + 100);
     return () => clearTimeout(timer);
   }, [todayCount, dailyGoal]);
+
+  // Auto-pronounce the English word whenever a new word appears
+  useEffect(() => {
+    if (currentWord) speak(currentWord.en);
+    // speak is memoized on soundEnabled; intentionally omit it to avoid re-firing on toggle
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentWord]);
 
   // Animated progress bar
   const goalReached = dailyGoal > 0 && todayCount >= dailyGoal;
@@ -217,23 +225,20 @@ export default function HomeScreen() {
               </Text>
             </Pressable>
 
-            <View style={styles.feedbackSlot} accessibilityLiveRegion="polite">
-              {isCorrect === true && (
-                <Text
-                  style={[styles.feedbackOk, { color: palette.success }]}
-                  maxFontSizeMultiplier={1.2}
-                  accessibilityLabel="Правильно">
-                  ✓ Правильно!
-                </Text>
-              )}
-              {isCorrect === false && (
-                <Text
-                  style={[styles.feedbackErr, { color: palette.danger }]}
-                  maxFontSizeMultiplier={1.2}
-                  accessibilityLabel="Неправильно">
-                  ✗ Неправильно
-                </Text>
-              )}
+            <View style={styles.feedbackSlot}>
+              <Pressable
+                style={({ pressed }) => [styles.soundBtn, pressed && { opacity: 0.5 }]}
+                onPress={toggleSound}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                accessibilityLabel={soundEnabled ? 'Вимкнути звук' : 'Увімкнути звук'}
+                accessibilityRole="button"
+                accessibilityState={{ checked: soundEnabled }}>
+                <MaterialIcons
+                  name={soundEnabled ? 'volume-up' : 'volume-off'}
+                  size={24}
+                  color={isDark ? Blue[300] : Blue[600]}
+                />
+              </Pressable>
             </View>
           </View>
 
@@ -258,15 +263,19 @@ export default function HomeScreen() {
             </Text>
           </View>
 
-          {/* Word card */}
-          <View
-            style={[
+          {/* Word card — tap to pronounce */}
+          <Pressable
+            style={({ pressed }) => [
               styles.wordCard,
               {
                 backgroundColor: palette.surface,
                 borderColor: isDark ? Blue[700] : Blue[400],
               },
-            ]}>
+              pressed && { opacity: 0.85 },
+            ]}
+            onPress={() => currentWord && speak(currentWord.en)}
+            accessibilityLabel={`Вимовити слово ${currentWord?.en ?? ''}`}
+            accessibilityRole="button">
             <ThemedText type="title" style={styles.wordText} adjustsFontSizeToFit numberOfLines={1}>
               {currentWord?.en ?? ''}
             </ThemedText>
@@ -282,7 +291,39 @@ export default function HomeScreen() {
                 Підказка: {hint}
               </Text>
             )}
-          </View>
+            {hint === null && selected === null && (
+              <Pressable
+                style={({ pressed }) => [
+                  styles.cardCornerBtn,
+                  styles.cardCornerBtnBL,
+                  pressed && { opacity: 0.5 },
+                ]}
+                onPress={revealHint}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessibilityLabel="Показати підказку"
+                accessibilityRole="button">
+                <MaterialIcons name="lightbulb" size={18} color={isDark ? Blue[300] : Blue[500]} />
+              </Pressable>
+            )}
+            {selected === null && (
+              <Pressable
+                style={({ pressed }) => [
+                  styles.cardCornerBtn,
+                  styles.cardCornerBtnBR,
+                  pressed && { opacity: 0.5 },
+                ]}
+                onPress={skipWord}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessibilityLabel="Пропустити слово"
+                accessibilityRole="button">
+                <MaterialIcons
+                  name="arrow-forward"
+                  size={18}
+                  color={isDark ? Blue[300] : Blue[500]}
+                />
+              </Pressable>
+            )}
+          </Pressable>
 
           {/* Manual advance button — shown after answering when autoAdvance is off */}
           {selected !== null && !autoAdvance && (
@@ -298,44 +339,6 @@ export default function HomeScreen() {
                 accessibilityRole="button">
                 <Text style={styles.nextBtnText} maxFontSizeMultiplier={1.2}>
                   Далі →
-                </Text>
-              </Pressable>
-            </View>
-          )}
-
-          {/* Auxiliary row: Hint + Skip (hidden after answering) */}
-          {selected === null && (
-            <View style={styles.auxRow}>
-              {hint === null && (
-                <Pressable
-                  style={({ pressed }) => [
-                    styles.auxBtn,
-                    { borderColor: palette.surfaceBorder },
-                    pressed && { opacity: 0.7 },
-                  ]}
-                  onPress={revealHint}
-                  accessibilityLabel="Показати підказку"
-                  accessibilityRole="button">
-                  <Text
-                    style={[styles.auxBtnText, { color: palette.mutedText }]}
-                    maxFontSizeMultiplier={1.2}>
-                    💡 Підказка
-                  </Text>
-                </Pressable>
-              )}
-              <Pressable
-                style={({ pressed }) => [
-                  styles.auxBtn,
-                  { borderColor: palette.surfaceBorder },
-                  pressed && { opacity: 0.7 },
-                ]}
-                onPress={skipWord}
-                accessibilityLabel="Пропустити слово"
-                accessibilityRole="button">
-                <Text
-                  style={[styles.auxBtnText, { color: palette.mutedText }]}
-                  maxFontSizeMultiplier={1.2}>
-                  Пропустити →
                 </Text>
               </Pressable>
             </View>
@@ -394,13 +397,12 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'flex-end',
   },
-  feedbackOk: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  feedbackErr: {
-    fontSize: 14,
-    fontWeight: '600',
+  soundBtn: {
+    padding: 4,
+    minWidth: 32,
+    minHeight: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   progressWrapper: {
     marginBottom: 14,
@@ -423,7 +425,8 @@ const styles = StyleSheet.create({
   wordCard: {
     borderWidth: 2,
     borderRadius: 16,
-    paddingVertical: 28,
+    paddingTop: 28,
+    paddingBottom: 44,
     paddingHorizontal: 24,
     alignItems: 'center',
     marginBottom: 12,
@@ -448,15 +451,21 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     justifyContent: 'flex-end',
   },
-  auxBtn: {
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingVertical: 7,
-    paddingHorizontal: 12,
+  cardCornerBtn: {
+    position: 'absolute',
+    padding: 8,
+    minWidth: 36,
+    minHeight: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  auxBtnText: {
-    fontSize: 12,
-    fontWeight: '500',
+  cardCornerBtnBL: {
+    bottom: 8,
+    left: 10,
+  },
+  cardCornerBtnBR: {
+    bottom: 8,
+    right: 10,
   },
   nextBtn: {
     borderRadius: 10,
