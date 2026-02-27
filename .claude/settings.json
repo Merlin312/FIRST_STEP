@@ -6,7 +6,8 @@
       "Bash(ls:*)",
       "Bash(npm install:*)",
       "Bash(npx expo lint:*)",
-      "Bash(npx eslint:*)"
+      "Bash(npx eslint:*)",
+      "Read(//c/Users/kia82/.claude/**)"
     ]
   }
 }

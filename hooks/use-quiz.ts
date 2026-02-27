@@ -11,18 +11,20 @@ function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
-const OPTIONS_COUNT = 6;
 // Мінімальний відступ перед повторним показом неправильно відповіданого слова
 const MIN_RETRY_GAP = 4;
 const MAX_RETRY_GAP = 10;
 
-/** Generates 6 options: 1 correct + 5 from the full word pool (for variety). */
-function generateOptions(correct: Word): string[] {
-  const wrongPool = WORDS.filter((w) => w.ua !== correct.ua);
+export type QuizDirection = 'en-ua' | 'ua-en';
+
+/** Generates N options: 1 correct + (N-1) from the full word pool (for variety). */
+function generateOptions(correct: Word, count: number, direction: QuizDirection): string[] {
+  const key = direction === 'en-ua' ? 'ua' : 'en';
+  const wrongPool = WORDS.filter((w) => w[key] !== correct[key]);
   const wrong = shuffle(wrongPool)
-    .slice(0, OPTIONS_COUNT - 1)
-    .map((w) => w.ua);
-  return shuffle([correct.ua, ...wrong]);
+    .slice(0, count - 1)
+    .map((w) => w[key]);
+  return shuffle([correct[key], ...wrong]);
 }
 
 interface State {
@@ -37,7 +39,11 @@ interface State {
   total: number;
 }
 
-function createInitialState(wordPool: Word[]): State {
+function createInitialState(
+  wordPool: Word[],
+  optionsCount: number,
+  direction: QuizDirection,
+): State {
   const pool = wordPool.length > 0 ? wordPool : WORDS;
   const queue = shuffle(pool);
   const currentWord = queue[0];
@@ -45,7 +51,7 @@ function createInitialState(wordPool: Word[]): State {
     queue,
     queueIndex: 0,
     currentWord,
-    options: generateOptions(currentWord),
+    options: generateOptions(currentWord, optionsCount, direction),
     selected: null,
     isCorrect: null,
     hintRevealed: false,
@@ -72,13 +78,21 @@ function reinsertWord(queue: Word[], afterIndex: number, word: Word): Word[] {
   return newQueue;
 }
 
-export function useQuiz(category?: WordCategory) {
+export function useQuiz(
+  category?: WordCategory,
+  optionsCount: 4 | 6 | 8 = 6,
+  direction: QuizDirection = 'en-ua',
+) {
   const wordPool = category ? (WORDS_BY_CATEGORY[category] ?? WORDS) : WORDS;
   // Keep pool reference stable for callbacks
   const wordPoolRef = useRef(wordPool);
   const prevCategoryRef = useRef(category);
+  const optionsCountRef = useRef(optionsCount);
+  const directionRef = useRef(direction);
 
-  const [state, setState] = useState<State>(() => createInitialState(wordPool));
+  const [state, setState] = useState<State>(() =>
+    createInitialState(wordPool, optionsCount, direction),
+  );
 
   // Reset quiz and word pool when category changes
   useEffect(() => {
@@ -86,13 +100,34 @@ export function useQuiz(category?: WordCategory) {
     prevCategoryRef.current = category;
     const newPool = category ? WORDS_BY_CATEGORY[category] : WORDS;
     wordPoolRef.current = newPool;
-    setState(createInitialState(newPool));
+    setState(createInitialState(newPool, optionsCountRef.current, directionRef.current));
   }, [category]);
+
+  // Regenerate options when optionsCount changes
+  useEffect(() => {
+    if (optionsCount === optionsCountRef.current) return;
+    optionsCountRef.current = optionsCount;
+    setState((prev) => ({
+      ...prev,
+      options: generateOptions(prev.currentWord, optionsCount, directionRef.current),
+      selected: null,
+      isCorrect: null,
+    }));
+  }, [optionsCount]);
+
+  // Reset quiz when direction changes
+  useEffect(() => {
+    if (direction === directionRef.current) return;
+    directionRef.current = direction;
+    setState(createInitialState(wordPoolRef.current, optionsCountRef.current, direction));
+  }, [direction]);
 
   const selectAnswer = useCallback((answer: string) => {
     setState((prev) => {
       if (prev.selected !== null) return prev;
-      const isCorrect = answer === prev.currentWord.ua;
+      const correctAnswer =
+        directionRef.current === 'en-ua' ? prev.currentWord.ua : prev.currentWord.en;
+      const isCorrect = answer === correctAnswer;
 
       // Неправильна відповідь → вставляємо слово назад у чергу на випадкову позицію
       const queue = isCorrect
@@ -126,7 +161,7 @@ export function useQuiz(category?: WordCategory) {
         queue,
         queueIndex: nextIndex,
         currentWord,
-        options: generateOptions(currentWord),
+        options: generateOptions(currentWord, optionsCountRef.current, directionRef.current),
         selected: null,
         isCorrect: null,
         hintRevealed: false,
@@ -157,7 +192,7 @@ export function useQuiz(category?: WordCategory) {
         queue: nextQueue,
         queueIndex: nextIndex,
         currentWord,
-        options: generateOptions(currentWord),
+        options: generateOptions(currentWord, optionsCountRef.current, directionRef.current),
         selected: null,
         isCorrect: null,
         hintRevealed: false,
@@ -171,14 +206,17 @@ export function useQuiz(category?: WordCategory) {
   }, []);
 
   const resetQuiz = useCallback(() => {
-    setState(createInitialState(wordPoolRef.current));
+    setState(
+      createInitialState(wordPoolRef.current, optionsCountRef.current, directionRef.current),
+    );
   }, []);
 
   // Будь-яка відповідь → auto-advance через 1.5 с
   const readyToAdvance = state.selected !== null;
 
-  // Підказка: перша літера + многокрапка
-  const hint = state.hintRevealed ? (state.currentWord.ua[0] ?? '?') + '…' : null;
+  // Підказка: перша літера + многокрапка (для правильної відповіді залежно від напряму)
+  const correctKey = direction === 'en-ua' ? 'ua' : 'en';
+  const hint = state.hintRevealed ? (state.currentWord[correctKey][0] ?? '?') + '…' : null;
 
   // Загальна кількість слів у поточній категорії / пулі
   const poolSize = wordPoolRef.current.length;

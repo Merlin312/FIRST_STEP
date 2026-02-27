@@ -1,4 +1,5 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { useRef, useEffect } from 'react';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { Blue, Colors } from '@/constants/theme';
 import { useStatsContext } from '@/contexts/stats-context';
@@ -14,6 +15,7 @@ interface StatsSectionProps {
   totalWrong: number;
   accuracy: number;
   streak: number;
+  bestStreak: number;
 }
 
 // Short Ukrainian day-of-week labels (Mon = 1 ... Sun = 0)
@@ -72,7 +74,7 @@ function getLastNDays(n: number): string[] {
   return days;
 }
 
-function WeeklyChart({
+function MonthlyChart({
   dailyHistory,
   dailyGoal,
   isDark,
@@ -82,17 +84,26 @@ function WeeklyChart({
   isDark: boolean;
 }) {
   const palette = isDark ? Colors.dark : Colors.light;
-  const days = getLastNDays(7);
+  const days = getLastNDays(30);
   const today = days[days.length - 1];
   const maxBarHeight = 36;
   const effectiveGoal = Math.max(dailyGoal, 1);
+  const scrollRef = useRef<ScrollView>(null);
+
+  useEffect(() => {
+    scrollRef.current?.scrollToEnd({ animated: false });
+  }, []);
 
   return (
     <View style={styles.chartWrapper}>
       <Text style={[styles.chartTitle, { color: palette.mutedText }]} maxFontSizeMultiplier={1.2}>
-        Активність за тиждень
+        Активність за місяць
       </Text>
-      <View style={styles.chartBars}>
+      <ScrollView
+        ref={scrollRef}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.chartBars}>
         {days.map((iso) => {
           const count = dailyHistory[iso] ?? 0;
           const ratio = Math.min(count / effectiveGoal, 1);
@@ -136,7 +147,7 @@ function WeeklyChart({
             </View>
           );
         })}
-      </View>
+      </ScrollView>
     </View>
   );
 }
@@ -149,6 +160,7 @@ export function StatsSection({
   totalWrong,
   accuracy,
   streak,
+  bestStreak,
 }: StatsSectionProps) {
   const palette = isDark ? Colors.dark : Colors.light;
   const { dailyHistory } = useStatsContext();
@@ -202,14 +214,19 @@ export function StatsSection({
 
       {/* 2×2 stat cards */}
       <View style={styles.grid}>
-        <StatCard value={`🔥 ${streak}`} label={pluralDays(streak)} isDark={isDark} />
+        <StatCard
+          value={`🔥 ${streak}`}
+          label={pluralDays(streak)}
+          sublabel={bestStreak > 0 ? `Рекорд: ${bestStreak} дн.` : undefined}
+          isDark={isDark}
+        />
         <StatCard value={`${accuracy}%`} label="Точність" sublabel="за весь час" isDark={isDark} />
         <StatCard value={totalAnswered.toLocaleString('uk-UA')} label="Всього" isDark={isDark} />
         <StatCard value={totalWrong.toLocaleString('uk-UA')} label="Помилок" isDark={isDark} />
       </View>
 
-      {/* 7-day activity chart */}
-      <WeeklyChart dailyHistory={dailyHistory} dailyGoal={dailyGoal} isDark={isDark} />
+      {/* 30-day activity chart */}
+      <MonthlyChart dailyHistory={dailyHistory} dailyGoal={dailyGoal} isDark={isDark} />
     </View>
   );
 }
@@ -279,7 +296,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   chartBarCol: {
-    flex: 1,
+    width: 18,
     alignItems: 'center',
     gap: 4,
   },

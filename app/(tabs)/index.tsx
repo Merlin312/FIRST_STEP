@@ -36,6 +36,7 @@ import { useDevice } from '@/hooks/use-device';
 import { useDrawer } from '@/hooks/use-drawer';
 import { usePushReminders } from '@/hooks/use-push-reminders';
 import { useQuiz } from '@/hooks/use-quiz';
+import type { QuizDirection } from '@/hooks/use-quiz';
 import { useReminderSettings } from '@/hooks/use-reminder-settings';
 import { useSound } from '@/hooks/use-sound';
 import { getReminderType } from '@/utils/reminder-logic';
@@ -44,6 +45,8 @@ import type { ButtonState } from '@/components/answer-button';
 export default function HomeScreen() {
   const [category, setCategory] = useState<WordCategory | undefined>(undefined);
   const [autoAdvance, setAutoAdvance] = useState(true);
+  const [optionsCount, setOptionsCount] = useState<4 | 6 | 8>(6);
+  const [quizDirection, setQuizDirection] = useState<QuizDirection>('en-ua');
 
   const {
     currentWord,
@@ -58,7 +61,7 @@ export default function HomeScreen() {
     skipWord,
     revealHint,
     resetQuiz,
-  } = useQuiz(category);
+  } = useQuiz(category, optionsCount, quizDirection);
 
   const { colorScheme } = useAppTheme();
   const isDark = colorScheme === 'dark';
@@ -90,7 +93,7 @@ export default function HomeScreen() {
       await reminder.setReminderEnabled(val);
       if (val) {
         const granted = await requestPermissions();
-        if (granted) await scheduleDaily(reminder.reminderTime);
+        if (granted) await scheduleDaily(reminder.reminderTime, reminder.reminderDays);
       } else {
         await cancelScheduled();
       }
@@ -99,9 +102,17 @@ export default function HomeScreen() {
   );
 
   const handleReminderTimeChange = useCallback(
-    async (time: Parameters<typeof reminder.setReminderTime>[0]) => {
+    async (time: string) => {
       await reminder.setReminderTime(time);
-      if (reminder.reminderEnabled) await scheduleDaily(time);
+      if (reminder.reminderEnabled) await scheduleDaily(time, reminder.reminderDays);
+    },
+    [reminder, scheduleDaily],
+  );
+
+  const handleReminderDaysChange = useCallback(
+    async (days: number[]) => {
+      await reminder.setReminderDays(days);
+      if (reminder.reminderEnabled) await scheduleDaily(reminder.reminderTime, days);
     },
     [reminder, scheduleDaily],
   );
@@ -118,14 +129,21 @@ export default function HomeScreen() {
       STORAGE_KEYS.wordCategory,
       STORAGE_KEYS.autoAdvance,
       STORAGE_KEYS.celebrationShownDate,
+      STORAGE_KEYS.optionsCount,
+      STORAGE_KEYS.quizDirection,
     ])
       .then((entries) => {
-        const cat = entries.find(([k]) => k === STORAGE_KEYS.wordCategory)?.[1];
-        const adv = entries.find(([k]) => k === STORAGE_KEYS.autoAdvance)?.[1];
-        const cel = entries.find(([k]) => k === STORAGE_KEYS.celebrationShownDate)?.[1];
+        const get = (key: string) => entries.find(([k]) => k === key)?.[1];
+        const cat = get(STORAGE_KEYS.wordCategory);
+        const adv = get(STORAGE_KEYS.autoAdvance);
+        const cel = get(STORAGE_KEYS.celebrationShownDate);
+        const opts = get(STORAGE_KEYS.optionsCount);
+        const dir = get(STORAGE_KEYS.quizDirection);
         if (cat) setCategory(cat as WordCategory);
         if (adv !== null && adv !== undefined) setAutoAdvance(adv !== 'false');
         if (cel) celebrationShownDateRef.current = cel;
+        if (opts === '4' || opts === '8') setOptionsCount(opts === '4' ? 4 : 8);
+        if (dir === 'ua-en') setQuizDirection('ua-en');
       })
       .catch(() => {});
   }, []);
@@ -149,6 +167,24 @@ export default function HomeScreen() {
       await AsyncStorage.setItem(STORAGE_KEYS.autoAdvance, String(val));
     } catch (e) {
       console.warn('[home] failed to persist autoAdvance', e);
+    }
+  }, []);
+
+  const handleOptionsCountChange = useCallback(async (val: 4 | 6 | 8) => {
+    setOptionsCount(val);
+    try {
+      await AsyncStorage.setItem(STORAGE_KEYS.optionsCount, String(val));
+    } catch (e) {
+      console.warn('[home] failed to persist optionsCount', e);
+    }
+  }, []);
+
+  const handleQuizDirectionChange = useCallback(async (val: QuizDirection) => {
+    setQuizDirection(val);
+    try {
+      await AsyncStorage.setItem(STORAGE_KEYS.quizDirection, val);
+    } catch (e) {
+      console.warn('[home] failed to persist quizDirection', e);
     }
   }, []);
 
@@ -257,7 +293,8 @@ export default function HomeScreen() {
   const handleAnswer = (option: string) => {
     if (selected !== null || answeredRef.current || !isLoaded || !currentWord) return;
     answeredRef.current = true;
-    const correct = option === currentWord.ua;
+    const correctAnswer = quizDirection === 'en-ua' ? currentWord.ua : currentWord.en;
+    const correct = option === correctAnswer;
     selectAnswer(option);
     addAnswer(correct);
     if (correct) {
@@ -273,7 +310,8 @@ export default function HomeScreen() {
 
   const getButtonState = (option: string): ButtonState => {
     if (selected === null) return 'idle';
-    if (option === currentWord?.ua) return 'correct';
+    const correctAnswer = quizDirection === 'en-ua' ? currentWord?.ua : currentWord?.en;
+    if (option === correctAnswer) return 'correct';
     if (option === selected) return 'wrong';
     return 'disabled';
   };
@@ -304,10 +342,16 @@ export default function HomeScreen() {
           onCategoryChange={handleCategoryChange}
           autoAdvance={autoAdvance}
           onAutoAdvanceChange={handleAutoAdvanceChange}
+          optionsCount={optionsCount}
+          onOptionsCountChange={handleOptionsCountChange}
+          quizDirection={quizDirection}
+          onQuizDirectionChange={handleQuizDirectionChange}
           reminderEnabled={reminder.reminderEnabled}
           reminderTime={reminder.reminderTime}
+          reminderDays={reminder.reminderDays}
           onReminderEnabledChange={handleReminderEnabledChange}
           onReminderTimeChange={handleReminderTimeChange}
+          onReminderDaysChange={handleReminderDaysChange}
         />
 
         {/* Main content — padded responsively */}
@@ -418,7 +462,7 @@ export default function HomeScreen() {
                     style={styles.wordText}
                     adjustsFontSizeToFit
                     numberOfLines={1}>
-                    {currentWord.en}
+                    {quizDirection === 'en-ua' ? currentWord.en : currentWord.ua}
                   </ThemedText>
                   <Text
                     style={[styles.queueLabel, { color: palette.mutedText }]}
@@ -662,16 +706,14 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   optionsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: 'column',
     gap: 8,
   },
   skeletonCard: {
     height: 140,
   },
   skeletonBtn: {
-    flex: 1,
-    minWidth: '47%',
+    width: '100%',
     height: 48,
     borderWidth: 2,
     borderRadius: 12,

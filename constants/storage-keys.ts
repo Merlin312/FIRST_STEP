@@ -24,4 +24,12 @@ export const STORAGE_KEYS = {
   scheduledNotificationId: 'scheduledNotificationId',
   /** Per-day answer counts: JSON blob of Record<'YYYY-MM-DD', number>. */
   dailyHistory: 'v2_dailyHistory',
+  /** Number of answer options shown per question (4 | 6 | 8). Default: 6. */
+  optionsCount: 'optionsCount',
+  /** Quiz direction: 'en-ua' (default) or 'ua-en' (reverse). */
+  quizDirection: 'quizDirection',
+  /** Days of week for reminders (JSON array of 0–6). Empty = all days. */
+  reminderDays: 'reminderDays',
+  /** Array of scheduled notification IDs (JSON). Replaces scheduledNotificationId. */
+  scheduledNotificationIds: 'scheduledNotificationIds',
 } as const;

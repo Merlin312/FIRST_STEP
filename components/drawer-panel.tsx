@@ -24,7 +24,8 @@ import { Blue, Colors } from '@/constants/theme';
 import type { WordCategory } from '@/constants/words';
 import { useAppTheme } from '@/contexts/theme-context';
 import { useStatsContext } from '@/contexts/stats-context';
-import type { ReminderTimePreset } from '@/hooks/use-reminder-settings';
+import type { ReminderDays } from '@/hooks/use-reminder-settings';
+import type { QuizDirection } from '@/hooks/use-quiz';
 
 import { SettingsSection } from '@/components/drawer/settings-section';
 import { StatsSection } from '@/components/drawer/stats-section';
@@ -39,10 +40,16 @@ interface DrawerPanelProps {
   onCategoryChange: (cat: WordCategory | undefined) => void;
   autoAdvance: boolean;
   onAutoAdvanceChange: (val: boolean) => void;
+  optionsCount: 4 | 6 | 8;
+  onOptionsCountChange: (val: 4 | 6 | 8) => void;
+  quizDirection: QuizDirection;
+  onQuizDirectionChange: (val: QuizDirection) => void;
   reminderEnabled: boolean;
-  reminderTime: ReminderTimePreset;
+  reminderTime: string;
+  reminderDays: ReminderDays;
   onReminderEnabledChange: (val: boolean) => Promise<void>;
-  onReminderTimeChange: (time: ReminderTimePreset) => Promise<void>;
+  onReminderTimeChange: (time: string) => Promise<void>;
+  onReminderDaysChange: (days: ReminderDays) => Promise<void>;
 }
 
 export function DrawerPanel({
@@ -55,10 +62,16 @@ export function DrawerPanel({
   onCategoryChange,
   autoAdvance,
   onAutoAdvanceChange,
+  optionsCount,
+  onOptionsCountChange,
+  quizDirection,
+  onQuizDirectionChange,
   reminderEnabled,
   reminderTime,
+  reminderDays,
   onReminderEnabledChange,
   onReminderTimeChange,
+  onReminderDaysChange,
 }: DrawerPanelProps) {
   const { colorScheme } = useAppTheme();
   const isDark = colorScheme === 'dark';
@@ -67,7 +80,7 @@ export function DrawerPanel({
   const { width: screenWidth } = useWindowDimensions();
   const router = useRouter();
 
-  const { totalAnswered, totalWrong, streak, accuracy } = useStatsContext();
+  const { totalAnswered, totalWrong, streak, bestStreak, accuracy } = useStatsContext();
 
   const translateX = useSharedValue(-DRAWER_WIDTH);
   const backdropOpacity = useSharedValue(0);
@@ -157,6 +170,7 @@ export function DrawerPanel({
               totalWrong={totalWrong}
               accuracy={accuracy}
               streak={streak}
+              bestStreak={bestStreak}
             />
             <Divider palette={palette} />
             <SettingsSection
@@ -165,12 +179,18 @@ export function DrawerPanel({
               onCategoryChange={onCategoryChange}
               autoAdvance={autoAdvance}
               onAutoAdvanceChange={onAutoAdvanceChange}
+              optionsCount={optionsCount}
+              onOptionsCountChange={onOptionsCountChange}
+              quizDirection={quizDirection}
+              onQuizDirectionChange={onQuizDirectionChange}
               onClose={onClose}
               onResetQuiz={onResetQuiz}
               reminderEnabled={reminderEnabled}
               reminderTime={reminderTime}
+              reminderDays={reminderDays}
               onReminderEnabledChange={onReminderEnabledChange}
               onReminderTimeChange={onReminderTimeChange}
+              onReminderDaysChange={onReminderDaysChange}
             />
           </ScrollView>
 

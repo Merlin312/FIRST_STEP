@@ -1,14 +1,24 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
-import { type ReactNode, useState } from 'react';
-import { Modal, Pressable, StyleSheet, Switch, Text, View, ViewStyle } from 'react-native';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
+import {
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  View,
+  ViewStyle,
+} from 'react-native';
 
 import { STORAGE_KEYS } from '@/constants/storage-keys';
 import { Blue, Colors } from '@/constants/theme';
 import type { WordCategory } from '@/constants/words';
 import { useStatsContext } from '@/contexts/stats-context';
 import { type ThemeMode, useAppTheme } from '@/contexts/theme-context';
-import { REMINDER_TIME_PRESETS, type ReminderTimePreset } from '@/hooks/use-reminder-settings';
+import type { QuizDirection } from '@/hooks/use-quiz';
+import type { ReminderDays } from '@/hooks/use-reminder-settings';
 
 type Palette = (typeof Colors)['light'] | (typeof Colors)['dark'];
 
@@ -34,6 +44,35 @@ const THEME_OPTIONS: { label: string; value: ThemeMode }[] = [
 ];
 
 const GOAL_OPTIONS = [10, 20, 50] as const;
+const OPTIONS_COUNT_OPTIONS = [4, 6, 8] as const;
+
+const QUIZ_DIRECTION_OPTIONS: { label: string; value: QuizDirection }[] = [
+  { label: 'EN → UA', value: 'en-ua' },
+  { label: 'UA → EN', value: 'ua-en' },
+];
+
+// Days of week starting Monday (1=Mon…6=Sat, 0=Sun)
+const DAY_OPTIONS: { label: string; value: number }[] = [
+  { label: 'Пн', value: 1 },
+  { label: 'Вт', value: 2 },
+  { label: 'Ср', value: 3 },
+  { label: 'Чт', value: 4 },
+  { label: 'Пт', value: 5 },
+  { label: 'Сб', value: 6 },
+  { label: 'Нд', value: 0 },
+];
+
+// Time options from 06:00 to 23:30 in 30-minute steps
+const TIME_OPTIONS: { label: string; value: string }[] = [];
+for (let h = 6; h <= 23; h++) {
+  for (const m of [0, 30]) {
+    const label = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    TIME_OPTIONS.push({ label, value: label });
+  }
+}
+
+// Approximate pill width + gap for scroll-to-active calculation
+const TIME_PILL_WIDTH = 64;
 
 const CATEGORY_OPTIONS: { label: string; value: WordCategory | undefined }[] = [
   { label: 'Всі', value: undefined },
@@ -49,12 +88,18 @@ export interface SettingsSectionProps {
   onCategoryChange: (cat: WordCategory | undefined) => void;
   autoAdvance: boolean;
   onAutoAdvanceChange: (val: boolean) => void;
+  optionsCount: 4 | 6 | 8;
+  onOptionsCountChange: (val: 4 | 6 | 8) => void;
+  quizDirection: QuizDirection;
+  onQuizDirectionChange: (val: QuizDirection) => void;
   onClose: () => void;
   onResetQuiz?: () => void;
   reminderEnabled: boolean;
-  reminderTime: ReminderTimePreset;
+  reminderTime: string;
+  reminderDays: ReminderDays;
   onReminderEnabledChange: (val: boolean) => Promise<void>;
-  onReminderTimeChange: (time: ReminderTimePreset) => Promise<void>;
+  onReminderTimeChange: (time: string) => Promise<void>;
+  onReminderDaysChange: (days: ReminderDays) => Promise<void>;
 }
 
 export function SettingsSection({
@@ -63,12 +108,18 @@ export function SettingsSection({
   onCategoryChange,
   autoAdvance,
   onAutoAdvanceChange,
+  optionsCount,
+  onOptionsCountChange,
+  quizDirection,
+  onQuizDirectionChange,
   onClose,
   onResetQuiz,
   reminderEnabled,
   reminderTime,
+  reminderDays,
   onReminderEnabledChange,
   onReminderTimeChange,
+  onReminderDaysChange,
 }: SettingsSectionProps) {
   const palette: Palette = isDark ? Colors.dark : Colors.light;
   const { themeMode, setThemeMode } = useAppTheme();
@@ -78,6 +129,33 @@ export function SettingsSection({
 
   const [openSection, setOpenSection] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<PendingAction>(null);
+  const timeScrollRef = useRef<ScrollView>(null);
+
+  // Scroll time picker to active time when reminders section opens
+  useEffect(() => {
+    if (openSection === 'reminders' && reminderEnabled) {
+      const idx = TIME_OPTIONS.findIndex((t) => t.value === reminderTime);
+      if (idx > 0) {
+        setTimeout(() => {
+          timeScrollRef.current?.scrollTo({ x: idx * TIME_PILL_WIDTH, animated: false });
+        }, 50);
+      }
+    }
+  }, [openSection, reminderEnabled, reminderTime]);
+
+  const toggleDay = (day: number) => {
+    const current = reminderDays.length === 0 ? [0, 1, 2, 3, 4, 5, 6] : reminderDays;
+    if (current.includes(day)) {
+      if (current.length <= 1) return; // keep at least 1 day
+      const next = current.filter((d) => d !== day);
+      void onReminderDaysChange(next);
+    } else {
+      const next = [...current, day];
+      void onReminderDaysChange(next.length === 7 ? [] : next);
+    }
+  };
+
+  const isDayActive = (day: number) => reminderDays.length === 0 || reminderDays.includes(day);
 
   const toggle = (key: string) => setOpenSection((prev) => (prev === key ? null : key));
 
@@ -113,6 +191,9 @@ export function SettingsSection({
         AsyncStorage.removeItem(STORAGE_KEYS.themeMode).catch(() => {}),
         AsyncStorage.removeItem(STORAGE_KEYS.wordCategory).catch(() => {}),
         AsyncStorage.removeItem(STORAGE_KEYS.autoAdvance).catch(() => {}),
+        AsyncStorage.removeItem(STORAGE_KEYS.optionsCount).catch(() => {}),
+        AsyncStorage.removeItem(STORAGE_KEYS.quizDirection).catch(() => {}),
+        AsyncStorage.removeItem(STORAGE_KEYS.reminderDays).catch(() => {}),
       ]);
       onClose();
       router.replace('/onboarding');
@@ -195,6 +276,36 @@ export function SettingsSection({
               />
             ))}
           </View>
+          <RowLabel label="Варіантів відповіді" palette={palette} />
+          <View style={styles.pillRow}>
+            {OPTIONS_COUNT_OPTIONS.map((n) => (
+              <SelectPill
+                key={n}
+                label={String(n)}
+                active={optionsCount === n}
+                isDark={isDark}
+                palette={palette}
+                flex
+                onPress={() => onOptionsCountChange(n)}
+                accessibilityLabel={`${n} варіантів відповіді`}
+              />
+            ))}
+          </View>
+          <RowLabel label="Напрям квізу" palette={palette} />
+          <View style={styles.pillRow}>
+            {QUIZ_DIRECTION_OPTIONS.map(({ label, value }) => (
+              <SelectPill
+                key={value}
+                label={label}
+                active={quizDirection === value}
+                isDark={isDark}
+                palette={palette}
+                flex
+                onPress={() => onQuizDirectionChange(value)}
+                accessibilityLabel={`Напрям: ${label}`}
+              />
+            ))}
+          </View>
           <RowLabel label="Категорія слів" palette={palette} />
           <View style={[styles.pillRow, styles.pillRowWrap]}>
             {CATEGORY_OPTIONS.map(({ label, value }) => (
@@ -249,17 +360,36 @@ export function SettingsSection({
           {reminderEnabled && (
             <>
               <RowLabel label="Час нагадування" palette={palette} />
-              <View style={styles.pillRow}>
-                {REMINDER_TIME_PRESETS.map(({ label, value }) => (
+              <ScrollView
+                ref={timeScrollRef}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.pillRow}>
+                {TIME_OPTIONS.map(({ label, value }) => (
                   <SelectPill
                     key={value}
                     label={label}
                     active={reminderTime === value}
                     isDark={isDark}
                     palette={palette}
+                    flex={false}
+                    onPress={() => void onReminderTimeChange(value)}
+                    accessibilityLabel={`Час нагадування: ${label}`}
+                  />
+                ))}
+              </ScrollView>
+              <RowLabel label="Дні тижня" palette={palette} />
+              <View style={styles.pillRow}>
+                {DAY_OPTIONS.map(({ label, value }) => (
+                  <SelectPill
+                    key={value}
+                    label={label}
+                    active={isDayActive(value)}
+                    isDark={isDark}
+                    palette={palette}
                     flex
-                    onPress={() => onReminderTimeChange(value)}
-                    accessibilityLabel={`Нагадування: ${label}`}
+                    onPress={() => toggleDay(value)}
+                    accessibilityLabel={`${label}: ${isDayActive(value) ? 'увімкнено' : 'вимкнено'}`}
                   />
                 ))}
               </View>

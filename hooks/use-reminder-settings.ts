@@ -3,22 +3,22 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { STORAGE_KEYS } from '@/constants/storage-keys';
 
-export const REMINDER_TIME_PRESETS = [
-  { label: 'Ранок', value: '09:00' },
-  { label: 'День', value: '14:00' },
-  { label: 'Вечір', value: '20:00' },
-] as const;
+/** Array of weekday numbers (0=Sun, 1=Mon … 6=Sat). Empty = all days. */
+export type ReminderDays = number[];
 
-export type ReminderTimePreset = (typeof REMINDER_TIME_PRESETS)[number]['value'];
+/** HH:MM time string for reminder scheduling. */
+export type ReminderTimePreset = string;
 
 interface ReminderSettings {
   reminderEnabled: boolean;
-  reminderTime: ReminderTimePreset;
+  reminderTime: string;
+  reminderDays: ReminderDays;
   lastReminderDate: string;
   snoozedUntil: string | null;
   isLoaded: boolean;
   setReminderEnabled: (val: boolean) => Promise<void>;
-  setReminderTime: (time: ReminderTimePreset) => Promise<void>;
+  setReminderTime: (time: string) => Promise<void>;
+  setReminderDays: (days: ReminderDays) => Promise<void>;
   /** Mark reminder as shown today so it won't repeat until tomorrow. */
   dismissForToday: () => Promise<void>;
   /** Snooze the reminder for the given number of hours. */
@@ -33,7 +33,8 @@ function todayISO(): string {
 
 export function useReminderSettings(): ReminderSettings {
   const [reminderEnabled, setReminderEnabledState] = useState(false);
-  const [reminderTime, setReminderTimeState] = useState<ReminderTimePreset>('09:00');
+  const [reminderTime, setReminderTimeState] = useState<string>('09:00');
+  const [reminderDays, setReminderDaysState] = useState<ReminderDays>([]);
   const [lastReminderDate, setLastReminderDate] = useState('');
   const [snoozedUntil, setSnoozedUntilState] = useState<string | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
@@ -42,6 +43,7 @@ export function useReminderSettings(): ReminderSettings {
     AsyncStorage.multiGet([
       STORAGE_KEYS.reminderEnabled,
       STORAGE_KEYS.reminderTime,
+      STORAGE_KEYS.reminderDays,
       STORAGE_KEYS.lastReminderDate,
       STORAGE_KEYS.reminderSnoozedUntil,
     ])
@@ -49,13 +51,20 @@ export function useReminderSettings(): ReminderSettings {
         const get = (key: string) => entries.find(([k]) => k === key)?.[1] ?? null;
 
         const enabled = get(STORAGE_KEYS.reminderEnabled);
-        const time = get(STORAGE_KEYS.reminderTime) as ReminderTimePreset | null;
+        const time = get(STORAGE_KEYS.reminderTime);
+        const daysRaw = get(STORAGE_KEYS.reminderDays);
         const lastDate = get(STORAGE_KEYS.lastReminderDate);
         const snoozed = get(STORAGE_KEYS.reminderSnoozedUntil);
 
         if (enabled !== null) setReminderEnabledState(enabled === 'true');
-        if (time && REMINDER_TIME_PRESETS.some((p) => p.value === time)) {
-          setReminderTimeState(time);
+        if (time && /^\d{1,2}:\d{2}$/.test(time)) setReminderTimeState(time);
+        if (daysRaw) {
+          try {
+            const parsed = JSON.parse(daysRaw) as number[];
+            if (Array.isArray(parsed)) setReminderDaysState(parsed);
+          } catch {
+            /* ignore */
+          }
         }
         if (lastDate) setLastReminderDate(lastDate);
         if (snoozed) setSnoozedUntilState(snoozed);
@@ -73,12 +82,21 @@ export function useReminderSettings(): ReminderSettings {
     }
   }, []);
 
-  const setReminderTime = useCallback(async (time: ReminderTimePreset) => {
+  const setReminderTime = useCallback(async (time: string) => {
     setReminderTimeState(time);
     try {
       await AsyncStorage.setItem(STORAGE_KEYS.reminderTime, time);
     } catch (e) {
       console.warn('[reminders] failed to persist reminderTime', e);
+    }
+  }, []);
+
+  const setReminderDays = useCallback(async (days: ReminderDays) => {
+    setReminderDaysState(days);
+    try {
+      await AsyncStorage.setItem(STORAGE_KEYS.reminderDays, JSON.stringify(days));
+    } catch (e) {
+      console.warn('[reminders] failed to persist reminderDays', e);
     }
   }, []);
 
@@ -105,11 +123,13 @@ export function useReminderSettings(): ReminderSettings {
   return {
     reminderEnabled,
     reminderTime,
+    reminderDays,
     lastReminderDate,
     snoozedUntil,
     isLoaded,
     setReminderEnabled,
     setReminderTime,
+    setReminderDays,
     dismissForToday,
     snooze,
   };

@@ -108,8 +108,7 @@ export function AnswerButton({ label, state, onPress, index }: AnswerButtonProps
 
 const styles = StyleSheet.create({
   outerWrapper: {
-    flex: 1,
-    minWidth: '47%',
+    width: '100%',
   },
   button: {
     borderWidth: 2,

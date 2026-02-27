@@ -27,6 +27,7 @@ interface StatsState {
   totalCorrect: number;
   // Streak
   streak: number;
+  bestStreak: number; // all-time longest streak
   lastActiveDate: string; // 'YYYY-MM-DD', or '' on first launch
   // Daily progress (resets automatically when todayDate !== today)
   todayCount: number;
@@ -45,6 +46,7 @@ const INITIAL: StatsState = {
   totalAnswered: 0,
   totalCorrect: 0,
   streak: 0,
+  bestStreak: 0,
   lastActiveDate: '',
   todayCount: 0,
   todayCorrect: 0,
@@ -81,8 +83,8 @@ function reducer(state: StatsState, action: Action): StatsState {
       const totalAnswered = state.totalAnswered + 1;
       const totalCorrect = action.isCorrect ? state.totalCorrect + 1 : state.totalCorrect;
 
-      // Daily — resets when day changes
-      const todayCount = (isNewDay ? 0 : state.todayCount) + 1;
+      // Daily — resets when day changes; only correct answers count toward the goal
+      const todayCount = (isNewDay ? 0 : state.todayCount) + (action.isCorrect ? 1 : 0);
       const todayCorrect = (isNewDay ? 0 : state.todayCorrect) + (action.isCorrect ? 1 : 0);
       const todayDate = today;
 
@@ -101,6 +103,7 @@ function reducer(state: StatsState, action: Action): StatsState {
           streak = state.lastActiveDate === dayBefore(today) ? state.streak + 1 : 1;
         }
       }
+      const bestStreak = Math.max(state.bestStreak, streak);
 
       // Keep at most 30 days of history to avoid unbounded growth
       const updatedHistory = { ...state.dailyHistory, [today]: todayCount };
@@ -114,6 +117,7 @@ function reducer(state: StatsState, action: Action): StatsState {
         totalAnswered,
         totalCorrect,
         streak,
+        bestStreak,
         lastActiveDate,
         todayCount,
         todayCorrect,
@@ -181,6 +185,7 @@ async function readFromStorage(): Promise<StatsState> {
       totalAnswered: p.totalAnswered ?? 0,
       totalCorrect: p.totalCorrect ?? 0,
       streak,
+      bestStreak: Math.max(p.bestStreak ?? 0, streak),
       lastActiveDate,
       todayCount,
       todayCorrect,
@@ -218,6 +223,8 @@ interface StatsContextValue {
   accuracy: number;
   /** Consecutive active days */
   streak: number;
+  /** All-time longest streak */
+  bestStreak: number;
   /** ISO date ('YYYY-MM-DD') of the last day the user answered. Empty string on first launch. */
   lastActiveDate: string;
   /** Words answered today */
@@ -248,6 +255,7 @@ const StatsContext = createContext<StatsContextValue>({
   totalWrong: 0,
   accuracy: 0,
   streak: 0,
+  bestStreak: 0,
   lastActiveDate: '',
   todayCount: 0,
   todayCorrect: 0,
@@ -316,6 +324,7 @@ export function StatsProvider({ children }: { children: React.ReactNode }) {
       accuracy:
         state.totalAnswered > 0 ? Math.round((state.totalCorrect / state.totalAnswered) * 100) : 0,
       streak: state.streak,
+      bestStreak: state.bestStreak,
       lastActiveDate: state.lastActiveDate,
       todayCount: state.todayCount,
       todayCorrect: state.todayCorrect,
@@ -332,6 +341,7 @@ export function StatsProvider({ children }: { children: React.ReactNode }) {
       state.totalAnswered,
       state.totalCorrect,
       state.streak,
+      state.bestStreak,
       state.lastActiveDate,
       state.todayCount,
       state.todayCorrect,
