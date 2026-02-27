@@ -69,15 +69,13 @@ export function AnswerButton({ label, state, onPress, index }: AnswerButtonProps
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }, { translateY: enterY.value }],
     opacity: enterOpacity.value * disabledOpacity.value,
-    flex: 1,
-    minWidth: '47%',
   }));
 
   const icon: 'check' | 'close' | null =
     state === 'correct' ? 'check' : state === 'wrong' ? 'close' : null;
 
   return (
-    <Animated.View style={animatedStyle}>
+    <Animated.View style={[styles.outerWrapper, animatedStyle]}>
       <Pressable
         style={({ pressed }) => [
           styles.button,
@@ -109,6 +107,10 @@ export function AnswerButton({ label, state, onPress, index }: AnswerButtonProps
 }
 
 const styles = StyleSheet.create({
+  outerWrapper: {
+    flex: 1,
+    minWidth: '47%',
+  },
   button: {
     borderWidth: 2,
     borderRadius: 12,

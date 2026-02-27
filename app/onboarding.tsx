@@ -10,6 +10,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
+import Animated, { useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { STORAGE_KEYS } from '@/constants/storage-keys';
@@ -29,6 +30,12 @@ function SlideIntro({ isDark }: { isDark: boolean }) {
   const palette = isDark ? Colors.dark : Colors.light;
   return (
     <View style={[styles.slide, { backgroundColor: palette.background }]}>
+      {/* Large emoji acting as illustration until Lottie asset is added.
+          To upgrade: install lottie-react-native, place books.json in
+          assets/animations/, and replace this Text with:
+            <LottieView source={require('../assets/animations/books.json')}
+              autoPlay loop style={styles.lottieAnim} />
+      */}
       <Text style={styles.emoji} accessibilityLabel="Книги">
         📚
       </Text>
@@ -126,6 +133,7 @@ function SlideGoal({
       <View style={styles.goalRow}>
         {GOALS.map((g) => {
           const active = g === selected;
+          const isRecommended = g === 20;
           return (
             <Pressable
               key={g}
@@ -133,14 +141,42 @@ function SlideGoal({
                 styles.goalCard,
                 {
                   backgroundColor: active ? Blue[600] : isDark ? Slate[800] : Blue[50],
-                  borderColor: active ? Blue[600] : isDark ? Slate[700] : Blue[200],
+                  borderColor: active
+                    ? Blue[600]
+                    : isRecommended
+                      ? Blue[400]
+                      : isDark
+                        ? Slate[700]
+                        : Blue[200],
                 },
                 pressed && styles.goalPressed,
               ]}
               onPress={() => onSelect(g)}
-              accessibilityLabel={`${g} слів на день`}
+              accessibilityLabel={`${g} слів на день${isRecommended ? ' (рекомендовано)' : ''}`}
               accessibilityRole="radio"
               accessibilityState={{ selected: active }}>
+              {/* Recommended badge */}
+              {isRecommended && (
+                <View
+                  style={[
+                    styles.recommendedBadge,
+                    {
+                      backgroundColor: active
+                        ? 'rgba(255,255,255,0.2)'
+                        : isDark
+                          ? Blue[900]
+                          : Blue[100],
+                    },
+                  ]}>
+                  <Text
+                    style={[
+                      styles.recommendedText,
+                      { color: active ? '#fff' : isDark ? Blue[300] : Blue[600] },
+                    ]}>
+                    ★
+                  </Text>
+                </View>
+              )}
               <Text
                 style={[
                   styles.goalNumber,
@@ -178,6 +214,18 @@ function SlideGoal({
   );
 }
 
+// ─── Animated dot indicator ──────────────────────────────────────────────────
+
+function Dot({ active, isDark }: { active: boolean; isDark: boolean }) {
+  const animStyle = useAnimatedStyle(() => ({
+    width: withTiming(active ? 20 : 8, { duration: 200 }),
+    backgroundColor: withTiming(active ? Blue[600] : isDark ? Blue[700] : Blue[200], {
+      duration: 200,
+    }),
+  }));
+  return <Animated.View style={[styles.dot, animStyle]} />;
+}
+
 // ─── Main component ──────────────────────────────────────────────────────────
 
 export default function OnboardingScreen() {
@@ -206,7 +254,6 @@ export default function OnboardingScreen() {
         AsyncStorage.setItem(STORAGE_KEYS.dailyGoal, String(selectedGoal)),
       ]);
     } catch (e) {
-      // Storage failure is non-fatal — proceed with defaults rather than blocking the user
       console.warn('[onboarding] failed to save settings, proceeding with defaults', e);
     }
     router.replace('/(tabs)');
@@ -253,7 +300,7 @@ export default function OnboardingScreen() {
 
       {/* Bottom chrome */}
       <View style={[styles.chrome, { backgroundColor: palette.background }]}>
-        {/* Dot indicators — tappable to jump to any slide */}
+        {/* Animated dot indicators */}
         <View style={styles.dots}>
           {SLIDE_KEYS.map((key, i) => (
             <Pressable
@@ -265,12 +312,7 @@ export default function OnboardingScreen() {
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               accessibilityLabel={`Перейти до слайду ${i + 1} з ${SLIDE_KEYS.length}`}
               accessibilityRole="button">
-              <View
-                style={[
-                  styles.dot,
-                  { backgroundColor: i === currentIndex ? Blue[600] : Blue[200] },
-                ]}
-              />
+              <Dot active={i === currentIndex} isDark={isDark} />
             </Pressable>
           ))}
         </View>
@@ -379,6 +421,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingVertical: 20,
     alignItems: 'center',
+    overflow: 'hidden',
   },
   goalPressed: {
     opacity: 0.8,
@@ -390,6 +433,18 @@ const styles = StyleSheet.create({
   goalLabel: {
     fontSize: 12,
     marginTop: 4,
+  },
+  recommendedBadge: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    borderRadius: 6,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+  },
+  recommendedText: {
+    fontSize: 10,
+    fontWeight: '700',
   },
   startButton: {
     alignSelf: 'stretch',
@@ -417,10 +472,10 @@ const styles = StyleSheet.create({
   },
   dots: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 6,
+    alignItems: 'center',
   },
   dot: {
-    width: 8,
     height: 8,
     borderRadius: 4,
   },

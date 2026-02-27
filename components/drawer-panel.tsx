@@ -1,7 +1,8 @@
 import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { MaterialIcons } from '@expo/vector-icons';
 import Animated, {
   runOnJS,
   useAnimatedStyle,
@@ -67,8 +68,6 @@ export function DrawerPanel({
   const router = useRouter();
 
   const { totalAnswered, totalWrong, streak, accuracy } = useStatsContext();
-
-  const [showSettings, setShowSettings] = useState(false);
 
   const translateX = useSharedValue(-DRAWER_WIDTH);
   const backdropOpacity = useSharedValue(0);
@@ -145,11 +144,7 @@ export function DrawerPanel({
               hitSlop={12}
               accessibilityLabel="Закрити меню"
               accessibilityRole="button">
-              <Text
-                style={[styles.closeBtnText, { color: isDark ? Blue[300] : Blue[600] }]}
-                maxFontSizeMultiplier={1.2}>
-                ✕
-              </Text>
+              <MaterialIcons name="close" size={22} color={isDark ? Blue[300] : Blue[600]} />
             </Pressable>
           </View>
 
@@ -164,42 +159,19 @@ export function DrawerPanel({
               streak={streak}
             />
             <Divider palette={palette} />
-            <Pressable
-              style={({ pressed }) => [
-                styles.settingsToggle,
-                { borderColor: palette.surfaceBorder, backgroundColor: palette.surface },
-                pressed && { opacity: 0.7 },
-              ]}
-              onPress={() => setShowSettings((v) => !v)}
-              accessibilityLabel="Налаштування"
-              accessibilityRole="button"
-              accessibilityState={{ expanded: showSettings }}>
-              <Text
-                style={[styles.settingsToggleText, { color: palette.text }]}
-                maxFontSizeMultiplier={1.2}>
-                ⚙️ Налаштування
-              </Text>
-              <Text
-                style={[styles.settingsChevron, { color: palette.subtleText }]}
-                maxFontSizeMultiplier={1.2}>
-                {showSettings ? '▲' : '▼'}
-              </Text>
-            </Pressable>
-            {showSettings && (
-              <SettingsSection
-                isDark={isDark}
-                category={category}
-                onCategoryChange={onCategoryChange}
-                autoAdvance={autoAdvance}
-                onAutoAdvanceChange={onAutoAdvanceChange}
-                onClose={onClose}
-                onResetQuiz={onResetQuiz}
-                reminderEnabled={reminderEnabled}
-                reminderTime={reminderTime}
-                onReminderEnabledChange={onReminderEnabledChange}
-                onReminderTimeChange={onReminderTimeChange}
-              />
-            )}
+            <SettingsSection
+              isDark={isDark}
+              category={category}
+              onCategoryChange={onCategoryChange}
+              autoAdvance={autoAdvance}
+              onAutoAdvanceChange={onAutoAdvanceChange}
+              onClose={onClose}
+              onResetQuiz={onResetQuiz}
+              reminderEnabled={reminderEnabled}
+              reminderTime={reminderTime}
+              onReminderEnabledChange={onReminderEnabledChange}
+              onReminderTimeChange={onReminderTimeChange}
+            />
           </ScrollView>
 
           {/* Footer */}
@@ -272,10 +244,6 @@ const styles = StyleSheet.create({
   closeBtn: {
     padding: 4,
   },
-  closeBtnText: {
-    fontSize: 18,
-    fontWeight: '600',
-  },
   scroll: {
     flex: 1,
   },
@@ -286,24 +254,6 @@ const styles = StyleSheet.create({
   footer: {
     fontSize: 11,
     textAlign: 'center',
-  },
-  settingsToggle: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginHorizontal: 20,
-    marginVertical: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderWidth: 1,
-    borderRadius: 12,
-  },
-  settingsToggleText: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  settingsChevron: {
-    fontSize: 11,
   },
   footerContainer: {
     alignItems: 'center',

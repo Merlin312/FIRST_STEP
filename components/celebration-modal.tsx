@@ -1,9 +1,16 @@
 import { useEffect } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
 
 import { Blue, Colors } from '@/constants/theme';
 import { useAppTheme } from '@/contexts/theme-context';
+import { useStatsContext } from '@/contexts/stats-context';
+import { pluralDays } from '@/utils/pluralize';
 
 interface CelebrationModalProps {
   visible: boolean;
@@ -15,6 +22,7 @@ export function CelebrationModal({ visible, goal, onDismiss }: CelebrationModalP
   const { colorScheme } = useAppTheme();
   const isDark = colorScheme === 'dark';
   const palette = isDark ? Colors.dark : Colors.light;
+  const { streak } = useStatsContext();
 
   const scale = useSharedValue(0.8);
   const opacity = useSharedValue(0);
@@ -43,14 +51,15 @@ export function CelebrationModal({ visible, goal, onDismiss }: CelebrationModalP
       animationType="fade"
       onRequestClose={onDismiss}
       statusBarTranslucent>
-      <Pressable style={styles.overlay} onPress={onDismiss} accessibilityLabel="Закрити" accessibilityRole="button">
+      <Pressable
+        style={styles.overlay}
+        onPress={onDismiss}
+        accessibilityLabel="Закрити"
+        accessibilityRole="button">
         <Pressable onPress={() => {}} accessibilityRole="none">
-          <Animated.View
-            style={[styles.card, { backgroundColor: palette.background }, cardStyle]}>
+          <Animated.View style={[styles.card, { backgroundColor: palette.background }, cardStyle]}>
             <Text style={styles.emoji}>🎉</Text>
-            <Text
-              style={[styles.title, { color: palette.text }]}
-              maxFontSizeMultiplier={1.2}>
+            <Text style={[styles.title, { color: palette.text }]} maxFontSizeMultiplier={1.2}>
               Мету досягнуто!
             </Text>
             <Text
@@ -63,11 +72,11 @@ export function CelebrationModal({ visible, goal, onDismiss }: CelebrationModalP
               . Чудова робота!
             </Text>
             <View style={styles.statsRow}>
-              <Text style={[styles.statsEmoji]}>🔥</Text>
+              <Text style={styles.statsEmoji}>🔥</Text>
               <Text
                 style={[styles.statsText, { color: palette.mutedText }]}
                 maxFontSizeMultiplier={1.2}>
-                Серія не переривається
+                Серія: {streak} {pluralDays(streak)}
               </Text>
             </View>
             <Pressable

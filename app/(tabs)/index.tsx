@@ -2,15 +2,19 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
+  interpolateColor,
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
+  withSequence,
+  withSpring,
   withTiming,
 } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { MaterialIcons } from '@expo/vector-icons';
 
 import { AnswerButton } from '@/components/answer-button';
 import { CelebrationModal } from '@/components/celebration-modal';
@@ -36,7 +40,6 @@ import { useReminderSettings } from '@/hooks/use-reminder-settings';
 import { useSound } from '@/hooks/use-sound';
 import { getReminderType } from '@/utils/reminder-logic';
 import type { ButtonState } from '@/components/answer-button';
-import { MaterialIcons } from '@expo/vector-icons';
 
 export default function HomeScreen() {
   const [category, setCategory] = useState<WordCategory | undefined>(undefined);
@@ -107,8 +110,6 @@ export default function HomeScreen() {
   const answeredRef = useRef(false);
 
   const [showCelebration, setShowCelebration] = useState(false);
-  // Stores the ISO date ('YYYY-MM-DD') when the celebration was last shown.
-  // Persisted to AsyncStorage so it survives component unmounts within the same day.
   const celebrationShownDateRef = useRef('');
 
   // Load persisted quiz settings on mount
@@ -119,7 +120,6 @@ export default function HomeScreen() {
       STORAGE_KEYS.celebrationShownDate,
     ])
       .then((entries) => {
-        // Lookup by key — avoids relying on positional array order
         const cat = entries.find(([k]) => k === STORAGE_KEYS.wordCategory)?.[1];
         const adv = entries.find(([k]) => k === STORAGE_KEYS.autoAdvance)?.[1];
         const cel = entries.find(([k]) => k === STORAGE_KEYS.celebrationShownDate)?.[1];
@@ -152,15 +152,14 @@ export default function HomeScreen() {
     }
   }, []);
 
-  // Re-read dailyGoal from storage on focus (picks up goal set during onboarding)
+  // Re-read dailyGoal from storage on focus
   useFocusEffect(
     useCallback(() => {
       reloadDailyGoal();
-      // Celebration tracking is date-based (celebrationShownDateRef), no reset needed here
     }, [reloadDailyGoal]),
   );
 
-  // Auto-advance to next word after QUIZ_ADVANCE_DELAY_MS (only when autoAdvance is on)
+  // Auto-advance to next word after QUIZ_ADVANCE_DELAY_MS
   useEffect(() => {
     if (!readyToAdvance || !autoAdvance) return;
     const timer = setTimeout(nextWord, QUIZ_ADVANCE_DELAY_MS);
@@ -171,7 +170,7 @@ export default function HomeScreen() {
   useEffect(() => {
     if (dailyGoal <= 0 || todayCount < dailyGoal) return;
     const today = new Date().toISOString().slice(0, 10);
-    if (celebrationShownDateRef.current === today) return; // already shown today
+    if (celebrationShownDateRef.current === today) return;
     const timer = setTimeout(() => {
       celebrationShownDateRef.current = today;
       AsyncStorage.setItem(STORAGE_KEYS.celebrationShownDate, today).catch(() => {});
@@ -188,23 +187,72 @@ export default function HomeScreen() {
   // Auto-pronounce the English word whenever a new word appears
   useEffect(() => {
     if (currentWord) speak(currentWord.en);
-    // speak is memoized on soundEnabled; intentionally omit it to avoid re-firing on toggle
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentWord]);
 
-  // Animated progress bar
+  // ─── Animated progress bar (width + color) ──────────────────────────────────
+
   const goalReached = dailyGoal > 0 && todayCount >= dailyGoal;
   const progressRatio = Math.min(todayCount / Math.max(dailyGoal, 1), 1);
   const progressAnim = useSharedValue(progressRatio);
+  const colorAnim = useSharedValue(goalReached ? 1 : 0);
+
   useEffect(() => {
     progressAnim.value = withTiming(progressRatio, { duration: PROGRESS_BAR_TIMING_MS });
     // progressAnim is a stable shared value — intentionally omitted
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [progressRatio]);
 
+  useEffect(() => {
+    colorAnim.value = withTiming(goalReached ? 1 : 0, { duration: 600 });
+    // colorAnim is a stable shared value — intentionally omitted
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [goalReached]);
+
+  const progressBlueColor = isDark ? Blue[400] : Blue[600];
+  const progressGreenColor = palette.success;
+
   const progressStyle = useAnimatedStyle(() => ({
     width: `${progressAnim.value * 100}%` as `${number}%`,
+    backgroundColor: interpolateColor(
+      colorAnim.value,
+      [0, 1],
+      [progressBlueColor, progressGreenColor],
+    ),
   }));
+
+  // ─── Word card green flash on correct answer ─────────────────────────────────
+
+  const cardHighlight = useSharedValue(0);
+
+  const cardHighlightStyle = useAnimatedStyle(() => ({
+    backgroundColor: interpolateColor(
+      cardHighlight.value,
+      [0, 1],
+      ['transparent', 'rgba(34,197,94,0.12)'],
+    ),
+  }));
+
+  // ─── Word entrance animation ─────────────────────────────────────────────────
+
+  const wordEntranceY = useSharedValue(-8);
+  const wordEntranceOpacity = useSharedValue(0);
+
+  useEffect(() => {
+    wordEntranceY.value = -8;
+    wordEntranceOpacity.value = 0;
+    wordEntranceY.value = withSpring(0, { damping: 20, stiffness: 200 });
+    wordEntranceOpacity.value = withTiming(1, { duration: 200 });
+    // wordEntranceY and wordEntranceOpacity are stable shared values
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentWord]);
+
+  const wordEntranceStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: wordEntranceY.value }],
+    opacity: wordEntranceOpacity.value,
+  }));
+
+  // ─── Answer handling ─────────────────────────────────────────────────────────
 
   const handleAnswer = (option: string) => {
     if (selected !== null || answeredRef.current || !isLoaded || !currentWord) return;
@@ -214,6 +262,10 @@ export default function HomeScreen() {
     addAnswer(correct);
     if (correct) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      cardHighlight.value = withSequence(
+        withTiming(1, { duration: 150 }),
+        withTiming(0, { duration: 350 }),
+      );
     } else {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
     }
@@ -260,7 +312,7 @@ export default function HomeScreen() {
 
         {/* Main content — padded responsively */}
         <View style={[styles.content, { paddingHorizontal: horizontalPadding }]}>
-          {/* Feedback row + menu button */}
+          {/* Header: menu button */}
           <View style={styles.header}>
             <Pressable
               style={({ pressed }) => [
@@ -272,51 +324,30 @@ export default function HomeScreen() {
               accessibilityLabel="Відкрити меню"
               accessibilityRole="button"
               accessibilityState={{ expanded: drawer.isOpen }}>
-              <Text
-                style={[styles.menuIcon, { color: isDark ? Blue[300] : Blue[600] }]}
-                maxFontSizeMultiplier={1.2}>
-                ☰
-              </Text>
+              <MaterialIcons name="menu" size={24} color={isDark ? Blue[300] : Blue[600]} />
             </Pressable>
-
-            <View style={styles.feedbackSlot}>
-              <Pressable
-                style={({ pressed }) => [styles.soundBtn, pressed && { opacity: 0.5 }]}
-                onPress={toggleSound}
-                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                accessibilityLabel={soundEnabled ? 'Вимкнути звук' : 'Увімкнути звук'}
-                accessibilityRole="button"
-                accessibilityState={{ checked: soundEnabled }}>
-                <MaterialIcons
-                  name={soundEnabled ? 'volume-up' : 'volume-off'}
-                  size={24}
-                  color={isDark ? Blue[300] : Blue[600]}
-                />
-              </Pressable>
-            </View>
           </View>
 
           {/* Daily progress bar */}
           <View style={styles.progressWrapper}>
+            <View style={styles.progressLabelRow}>
+              <Text
+                style={[styles.progressGoalLabel, { color: isDark ? Blue[300] : Blue[600] }]}
+                maxFontSizeMultiplier={1.2}>
+                Мета дня
+              </Text>
+              <Text
+                style={[styles.progressLabel, { color: isDark ? Blue[300] : Blue[600] }]}
+                maxFontSizeMultiplier={1.2}>
+                {todayCount} / {dailyGoal}
+              </Text>
+            </View>
             <View
               style={[styles.progressTrack, { backgroundColor: palette.surface }]}
               accessibilityRole="progressbar"
               accessibilityLabel={`Денний прогрес: ${todayCount} з ${dailyGoal} слів`}>
-              <Animated.View
-                style={[
-                  styles.progressFill,
-                  {
-                    backgroundColor: goalReached ? palette.success : isDark ? Blue[400] : Blue[600],
-                  },
-                  progressStyle,
-                ]}
-              />
+              <Animated.View style={[styles.progressFill, progressStyle]} />
             </View>
-            <Text
-              style={[styles.progressLabel, { color: isDark ? Blue[300] : Blue[600] }]}
-              maxFontSizeMultiplier={1.2}>
-              {todayCount} / {dailyGoal} слів сьогодні
-            </Text>
           </View>
 
           {/* Reminder banner */}
@@ -331,98 +362,172 @@ export default function HomeScreen() {
             />
           )}
 
-          {/* Word card — tap to pronounce */}
-          <Pressable
-            style={({ pressed }) => [
-              styles.wordCard,
-              {
-                backgroundColor: palette.surface,
-                borderColor: isDark ? Blue[700] : Blue[400],
-              },
-              pressed && { opacity: 0.85 },
-            ]}
-            onPress={() => currentWord && speak(currentWord.en)}
-            accessibilityLabel={`Вимовити слово ${currentWord?.en ?? ''}`}
-            accessibilityRole="button">
-            <ThemedText type="title" style={styles.wordText} adjustsFontSizeToFit numberOfLines={1}>
-              {currentWord?.en ?? ''}
-            </ThemedText>
-            <Text
-              style={[styles.queueLabel, { color: palette.mutedText }]}
-              maxFontSizeMultiplier={1.2}>
-              {queueIndex + 1} / {poolSize}
-            </Text>
-            {hint !== null && (
-              <Text
-                style={[styles.hintText, { color: isDark ? Blue[300] : Blue[600] }]}
-                maxFontSizeMultiplier={1.2}>
-                Підказка: {hint}
-              </Text>
-            )}
-            {hint === null && selected === null && (
-              <Pressable
-                style={({ pressed }) => [
-                  styles.cardCornerBtn,
-                  styles.cardCornerBtnBL,
-                  pressed && { opacity: 0.5 },
+          {/* Skeleton while loading */}
+          {!isLoaded ? (
+            <>
+              <View
+                style={[
+                  styles.wordCard,
+                  styles.skeletonCard,
+                  { backgroundColor: palette.surface, borderColor: palette.surfaceBorder },
                 ]}
-                onPress={revealHint}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                accessibilityLabel="Показати підказку"
-                accessibilityRole="button">
-                <MaterialIcons name="lightbulb" size={18} color={isDark ? Blue[300] : Blue[500]} />
-              </Pressable>
-            )}
-            {selected === null && (
+              />
+              <View style={styles.optionsGrid}>
+                {[0, 1, 2, 3, 4, 5].map((i) => (
+                  <View
+                    key={i}
+                    style={[
+                      styles.skeletonBtn,
+                      { backgroundColor: palette.surface, borderColor: palette.surfaceBorder },
+                    ]}
+                  />
+                ))}
+              </View>
+            </>
+          ) : !currentWord ? (
+            /* Empty state */
+            <View style={styles.emptyState}>
+              <MaterialIcons name="search-off" size={48} color={palette.mutedText} />
+              <Text style={[styles.emptyText, { color: palette.mutedText }]}>Слів не знайдено</Text>
+            </View>
+          ) : (
+            <>
+              {/* Word card — tap to pronounce */}
               <Pressable
                 style={({ pressed }) => [
-                  styles.cardCornerBtn,
-                  styles.cardCornerBtnBR,
-                  pressed && { opacity: 0.5 },
-                ]}
-                onPress={skipWord}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                accessibilityLabel="Пропустити слово"
-                accessibilityRole="button">
-                <MaterialIcons
-                  name="arrow-forward"
-                  size={18}
-                  color={isDark ? Blue[300] : Blue[500]}
-                />
-              </Pressable>
-            )}
-          </Pressable>
-
-          {/* Manual advance button — shown after answering when autoAdvance is off */}
-          {selected !== null && !autoAdvance && (
-            <View style={styles.auxRow}>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.nextBtn,
-                  { backgroundColor: Blue[600] },
+                  styles.wordCard,
+                  {
+                    backgroundColor: palette.surface,
+                    borderColor: isDark ? Blue[700] : Blue[400],
+                  },
                   pressed && { opacity: 0.85 },
                 ]}
-                onPress={nextWord}
-                accessibilityLabel="Наступне слово"
+                onPress={() => speak(currentWord.en)}
+                accessibilityLabel={`Вимовити слово ${currentWord.en}`}
                 accessibilityRole="button">
-                <Text style={styles.nextBtnText} maxFontSizeMultiplier={1.2}>
-                  Далі →
-                </Text>
-              </Pressable>
-            </View>
-          )}
+                {/* Green flash overlay on correct answer */}
+                <Animated.View
+                  style={[StyleSheet.absoluteFillObject, styles.cardOverlay, cardHighlightStyle]}
+                  pointerEvents="none"
+                />
 
-          {/* Answer options */}
-          <View>
-            {options.map((option) => (
-              <AnswerButton
-                key={option}
-                label={option}
-                state={getButtonState(option)}
-                onPress={() => handleAnswer(option)}
-              />
-            ))}
-          </View>
+                {/* Word + queue with entrance animation */}
+                <Animated.View style={[styles.wordContent, wordEntranceStyle]}>
+                  <ThemedText
+                    type="title"
+                    style={styles.wordText}
+                    adjustsFontSizeToFit
+                    numberOfLines={1}>
+                    {currentWord.en}
+                  </ThemedText>
+                  <Text
+                    style={[styles.queueLabel, { color: palette.mutedText }]}
+                    maxFontSizeMultiplier={1.2}>
+                    {queueIndex + 1} / {poolSize}
+                  </Text>
+                </Animated.View>
+
+                {hint !== null && (
+                  <Text
+                    style={[styles.hintText, { color: isDark ? Blue[300] : Blue[600] }]}
+                    maxFontSizeMultiplier={1.2}>
+                    Підказка: {hint}
+                  </Text>
+                )}
+
+                {/* Sound toggle — top-right corner */}
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.cardCornerBtn,
+                    styles.cardCornerBtnTR,
+                    pressed && { opacity: 0.5 },
+                  ]}
+                  onPress={toggleSound}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  accessibilityLabel={soundEnabled ? 'Вимкнути звук' : 'Увімкнути звук'}
+                  accessibilityRole="button"
+                  accessibilityState={{ checked: soundEnabled }}>
+                  <MaterialIcons
+                    name={soundEnabled ? 'volume-up' : 'volume-off'}
+                    size={18}
+                    color={isDark ? Blue[300] : Blue[500]}
+                  />
+                </Pressable>
+
+                {/* Hint button — bottom-left */}
+                {hint === null && selected === null && (
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.cardCornerBtn,
+                      styles.cardCornerBtnBL,
+                      pressed && { opacity: 0.5 },
+                    ]}
+                    onPress={revealHint}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    accessibilityLabel="Показати підказку"
+                    accessibilityRole="button">
+                    <MaterialIcons
+                      name="lightbulb"
+                      size={18}
+                      color={isDark ? Blue[300] : Blue[500]}
+                    />
+                  </Pressable>
+                )}
+
+                {/* Skip button — bottom-right */}
+                {selected === null && (
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.cardCornerBtn,
+                      styles.cardCornerBtnBR,
+                      pressed && { opacity: 0.5 },
+                    ]}
+                    onPress={skipWord}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    accessibilityLabel="Пропустити слово"
+                    accessibilityRole="button">
+                    <MaterialIcons
+                      name="arrow-forward"
+                      size={18}
+                      color={isDark ? Blue[300] : Blue[500]}
+                    />
+                  </Pressable>
+                )}
+              </Pressable>
+
+              {/* Manual advance button — shown after answering when autoAdvance is off */}
+              {selected !== null && !autoAdvance && (
+                <View style={styles.auxRow}>
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.nextBtn,
+                      { backgroundColor: Blue[600] },
+                      pressed && { opacity: 0.85 },
+                    ]}
+                    onPress={nextWord}
+                    accessibilityLabel="Наступне слово"
+                    accessibilityRole="button">
+                    <Text style={styles.nextBtnText} maxFontSizeMultiplier={1.2}>
+                      Далі →
+                    </Text>
+                  </Pressable>
+                </View>
+              )}
+
+              {/* Answer options — 2×3 grid */}
+              <View style={styles.optionsGrid}>
+                {options.map((option, i) => (
+                  <AnswerButton
+                    key={option}
+                    label={option}
+                    state={getButtonState(option)}
+                    onPress={() => handleAnswer(option)}
+                    index={i}
+                  />
+                ))}
+              </View>
+            </>
+          )}
         </View>
 
         {/* Daily goal celebration */}
@@ -457,38 +562,31 @@ const styles = StyleSheet.create({
     minHeight: 32,
     justifyContent: 'center',
   },
-  menuIcon: {
-    fontSize: 22,
-    fontWeight: '600',
-  },
-  feedbackSlot: {
-    flex: 1,
-    alignItems: 'flex-end',
-  },
-  soundBtn: {
-    padding: 4,
-    minWidth: 32,
-    minHeight: 32,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   progressWrapper: {
     marginBottom: 14,
-    gap: 4,
+    gap: 6,
   },
-  progressTrack: {
-    height: 6,
-    borderRadius: 3,
-    overflow: 'hidden',
+  progressLabelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
-  progressFill: {
-    height: 6,
-    borderRadius: 3,
+  progressGoalLabel: {
+    fontSize: 12,
+    fontWeight: '600',
   },
   progressLabel: {
     fontSize: 12,
     fontWeight: '500',
-    textAlign: 'right',
+  },
+  progressTrack: {
+    height: 8,
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: 8,
+    borderRadius: 4,
   },
   wordCard: {
     borderWidth: 2,
@@ -498,11 +596,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     alignItems: 'center',
     marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+    overflow: 'hidden',
+  },
+  cardOverlay: {
+    borderRadius: 14,
+  },
+  wordContent: {
+    alignItems: 'center',
   },
   wordText: {
     fontSize: 34,
     lineHeight: 42,
     letterSpacing: 1,
+    ...Platform.select({ ios: { fontFamily: 'ui-rounded' }, default: {} }),
   },
   queueLabel: {
     fontSize: 12,
@@ -527,6 +638,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  cardCornerBtnTR: {
+    top: 8,
+    right: 10,
+  },
   cardCornerBtnBL: {
     bottom: 8,
     left: 10,
@@ -545,5 +660,30 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     fontWeight: '700',
+  },
+  optionsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  skeletonCard: {
+    height: 140,
+  },
+  skeletonBtn: {
+    flex: 1,
+    minWidth: '47%',
+    height: 48,
+    borderWidth: 2,
+    borderRadius: 12,
+  },
+  emptyState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 12,
+  },
+  emptyText: {
+    fontSize: 16,
+    fontWeight: '500',
   },
 });

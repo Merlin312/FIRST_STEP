@@ -1,6 +1,8 @@
 import { StyleSheet, Text, View } from 'react-native';
 
 import { Blue, Colors } from '@/constants/theme';
+import { useStatsContext } from '@/contexts/stats-context';
+import { RingProgress } from '@/components/ring-progress';
 import { pluralDays } from '@/utils/pluralize';
 import { sectionStyles } from './shared';
 
@@ -13,6 +15,9 @@ interface StatsSectionProps {
   accuracy: number;
   streak: number;
 }
+
+// Short Ukrainian day-of-week labels (Mon = 1 ... Sun = 0)
+const DAY_LABELS = ['Нд', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
 
 function StatCard({
   value,
@@ -55,6 +60,87 @@ function StatCard({
   );
 }
 
+/** Returns last N days as ISO date strings, from oldest to newest. */
+function getLastNDays(n: number): string[] {
+  const days: string[] = [];
+  for (let i = n - 1; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    days.push(iso);
+  }
+  return days;
+}
+
+function WeeklyChart({
+  dailyHistory,
+  dailyGoal,
+  isDark,
+}: {
+  dailyHistory: Record<string, number>;
+  dailyGoal: number;
+  isDark: boolean;
+}) {
+  const palette = isDark ? Colors.dark : Colors.light;
+  const days = getLastNDays(7);
+  const today = days[days.length - 1];
+  const maxBarHeight = 36;
+  const effectiveGoal = Math.max(dailyGoal, 1);
+
+  return (
+    <View style={styles.chartWrapper}>
+      <Text style={[styles.chartTitle, { color: palette.mutedText }]} maxFontSizeMultiplier={1.2}>
+        Активність за тиждень
+      </Text>
+      <View style={styles.chartBars}>
+        {days.map((iso) => {
+          const count = dailyHistory[iso] ?? 0;
+          const ratio = Math.min(count / effectiveGoal, 1);
+          const barHeight = Math.max(ratio * maxBarHeight, count > 0 ? 4 : 2);
+          const isToday = iso === today;
+          const dayOfWeek = new Date(iso + 'T00:00:00').getDay();
+          const barColor = isToday
+            ? isDark
+              ? Blue[400]
+              : Blue[600]
+            : ratio >= 1
+              ? palette.success
+              : isDark
+                ? Blue[700]
+                : Blue[200];
+
+          return (
+            <View key={iso} style={styles.chartBarCol}>
+              <View style={[styles.chartBarTrack, { height: maxBarHeight }]}>
+                <View
+                  style={[
+                    styles.chartBarFill,
+                    {
+                      height: barHeight,
+                      backgroundColor: barColor,
+                    },
+                  ]}
+                />
+              </View>
+              <Text
+                style={[
+                  styles.chartDayLabel,
+                  {
+                    color: isToday ? (isDark ? Blue[300] : Blue[600]) : palette.subtleText,
+                    fontWeight: isToday ? '700' : '400',
+                  },
+                ]}
+                maxFontSizeMultiplier={1.2}>
+                {DAY_LABELS[dayOfWeek]}
+              </Text>
+            </View>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
 export function StatsSection({
   isDark,
   todayCount,
@@ -65,46 +151,52 @@ export function StatsSection({
   streak,
 }: StatsSectionProps) {
   const palette = isDark ? Colors.dark : Colors.light;
+  const { dailyHistory } = useStatsContext();
   const goalReached = dailyGoal > 0 && todayCount >= dailyGoal;
   const progressRatio = dailyGoal > 0 ? Math.min(todayCount / dailyGoal, 1) : 0;
   const progressColor = goalReached ? palette.success : isDark ? Blue[400] : Blue[600];
-  const goalBadgeBg = isDark ? 'rgba(134, 239, 172, 0.15)' : 'rgba(34, 197, 94, 0.12)';
 
   return (
     <View style={sectionStyles.section}>
       <Text style={[sectionStyles.sectionLabel, { color: palette.mutedText }]}>📊 СТАТИСТИКА</Text>
 
-      {/* Daily progress */}
-      <View style={styles.progressBlock}>
-        <View style={styles.progressHeader}>
-          <Text
-            style={[styles.progressLabel, { color: palette.mutedText }]}
-            maxFontSizeMultiplier={1.2}>
-            Сьогодні
-          </Text>
+      {/* Daily progress — ring + count */}
+      <View style={styles.ringRow}>
+        <RingProgress
+          progress={progressRatio}
+          size={72}
+          thickness={7}
+          color={progressColor}
+          trackColor={palette.surfaceBorder}
+        />
+        <View style={styles.ringInfo}>
           {goalReached ? (
-            <View style={[styles.goalBadge, { backgroundColor: goalBadgeBg }]}>
+            <>
               <Text
-                style={[styles.goalBadgeText, { color: palette.success }]}
+                style={[styles.ringCount, { color: palette.success }]}
                 maxFontSizeMultiplier={1.2}>
-                ✓ Ціль виконана!
+                ✓ Ціль!
               </Text>
-            </View>
+              <Text
+                style={[styles.ringLabel, { color: palette.mutedText }]}
+                maxFontSizeMultiplier={1.2}>
+                {todayCount} слів сьогодні
+              </Text>
+            </>
           ) : (
-            <Text
-              style={[styles.progressCount, { color: isDark ? Blue[300] : Blue[600] }]}
-              maxFontSizeMultiplier={1.2}>
-              {todayCount} / {dailyGoal}
-            </Text>
+            <>
+              <Text
+                style={[styles.ringCount, { color: isDark ? Blue[200] : Blue[800] }]}
+                maxFontSizeMultiplier={1.2}>
+                {todayCount} / {dailyGoal}
+              </Text>
+              <Text
+                style={[styles.ringLabel, { color: palette.mutedText }]}
+                maxFontSizeMultiplier={1.2}>
+                слів сьогодні
+              </Text>
+            </>
           )}
-        </View>
-        <View style={[styles.progressTrack, { backgroundColor: palette.surfaceBorder }]}>
-          <View
-            style={[
-              styles.progressFill,
-              { backgroundColor: progressColor, width: `${progressRatio * 100}%` as `${number}%` },
-            ]}
-          />
         </View>
       </View>
 
@@ -115,50 +207,37 @@ export function StatsSection({
         <StatCard value={totalAnswered.toLocaleString('uk-UA')} label="Всього" isDark={isDark} />
         <StatCard value={totalWrong.toLocaleString('uk-UA')} label="Помилок" isDark={isDark} />
       </View>
+
+      {/* 7-day activity chart */}
+      <WeeklyChart dailyHistory={dailyHistory} dailyGoal={dailyGoal} isDark={isDark} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  progressBlock: {
-    gap: 6,
-    marginBottom: 10,
-  },
-  progressHeader: {
+  ringRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    gap: 16,
+    marginBottom: 12,
   },
-  progressLabel: {
-    fontSize: 13,
-    fontWeight: '500',
+  ringInfo: {
+    flex: 1,
+    gap: 2,
   },
-  progressCount: {
-    fontSize: 13,
-    fontWeight: '600',
+  ringCount: {
+    fontSize: 22,
+    fontWeight: '700',
   },
-  goalBadge: {
-    borderRadius: 6,
-    paddingVertical: 3,
-    paddingHorizontal: 8,
-  },
-  goalBadgeText: {
+  ringLabel: {
     fontSize: 12,
-    fontWeight: '600',
-  },
-  progressTrack: {
-    height: 6,
-    borderRadius: 3,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: 6,
-    borderRadius: 3,
+    fontWeight: '500',
   },
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
+    marginBottom: 12,
   },
   statCard: {
     flex: 1,
@@ -183,5 +262,37 @@ const styles = StyleSheet.create({
   statCardSublabel: {
     fontSize: 10,
     marginTop: 1,
+  },
+  // Weekly chart
+  chartWrapper: {
+    gap: 8,
+  },
+  chartTitle: {
+    fontSize: 11,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+  },
+  chartBars: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 4,
+  },
+  chartBarCol: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 4,
+  },
+  chartBarTrack: {
+    width: '100%',
+    justifyContent: 'flex-end',
+  },
+  chartBarFill: {
+    width: '100%',
+    borderRadius: 3,
+    minHeight: 2,
+  },
+  chartDayLabel: {
+    fontSize: 9,
   },
 });
