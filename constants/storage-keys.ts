@@ -22,4 +22,6 @@ export const STORAGE_KEYS = {
   reminderSnoozedUntil: 'reminderSnoozedUntil',
   /** expo-notifications identifier for the scheduled daily push notification. */
   scheduledNotificationId: 'scheduledNotificationId',
+  /** Per-day answer counts: JSON blob of Record<'YYYY-MM-DD', number>. */
+  dailyHistory: 'v2_dailyHistory',
 } as const;

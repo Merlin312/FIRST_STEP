@@ -32,6 +32,8 @@ interface StatsState {
   todayCount: number;
   todayCorrect: number; // correct answers today
   todayDate: string; // 'YYYY-MM-DD', or '' on first launch
+  // Per-day history: date → answer count (max 30 days kept)
+  dailyHistory: Record<string, number>;
   // Settings
   dailyGoal: number;
   streakCorrectOnly: boolean; // when true, streak increments only on correct answers
@@ -47,6 +49,7 @@ const INITIAL: StatsState = {
   todayCount: 0,
   todayCorrect: 0,
   todayDate: '',
+  dailyHistory: {},
   dailyGoal: 20,
   streakCorrectOnly: false,
   _loaded: false,
@@ -99,6 +102,13 @@ function reducer(state: StatsState, action: Action): StatsState {
         }
       }
 
+      // Keep at most 30 days of history to avoid unbounded growth
+      const updatedHistory = { ...state.dailyHistory, [today]: todayCount };
+      const historyKeys = Object.keys(updatedHistory).sort();
+      if (historyKeys.length > 30) {
+        delete updatedHistory[historyKeys[0]];
+      }
+
       return {
         ...state,
         totalAnswered,
@@ -108,6 +118,7 @@ function reducer(state: StatsState, action: Action): StatsState {
         todayCount,
         todayCorrect,
         todayDate,
+        dailyHistory: updatedHistory,
       };
     }
 
@@ -128,15 +139,25 @@ function reducer(state: StatsState, action: Action): StatsState {
 type PersistedStats = Omit<StatsState, '_loaded' | 'dailyGoal'>;
 
 async function readFromStorage(): Promise<StatsState> {
-  const [raw, goalStr] = await Promise.all([
+  const [raw, goalStr, historyRaw] = await Promise.all([
     AsyncStorage.getItem(STORAGE_KEYS.stats),
     AsyncStorage.getItem(STORAGE_KEYS.dailyGoal),
+    AsyncStorage.getItem(STORAGE_KEYS.dailyHistory),
   ]);
 
   const dailyGoal = parseInt(goalStr ?? '20', 10) || 20;
 
+  let dailyHistory: Record<string, number> = {};
+  if (historyRaw) {
+    try {
+      dailyHistory = JSON.parse(historyRaw) as Record<string, number>;
+    } catch {
+      /* ignore */
+    }
+  }
+
   if (!raw) {
-    return { ...INITIAL, dailyGoal, _loaded: true };
+    return { ...INITIAL, dailyGoal, dailyHistory, _loaded: true };
   }
 
   try {
@@ -164,6 +185,7 @@ async function readFromStorage(): Promise<StatsState> {
       todayCount,
       todayCorrect,
       todayDate,
+      dailyHistory,
       dailyGoal,
       streakCorrectOnly: p.streakCorrectOnly ?? false,
       _loaded: true,
@@ -174,9 +196,12 @@ async function readFromStorage(): Promise<StatsState> {
 }
 
 function persistStats(state: StatsState): void {
-  const { _loaded: _, dailyGoal: __, ...data } = state;
+  const { _loaded: _, dailyGoal: __, dailyHistory, ...data } = state;
   AsyncStorage.setItem(STORAGE_KEYS.stats, JSON.stringify(data)).catch((e) =>
     console.warn('[stats] persist error', e),
+  );
+  AsyncStorage.setItem(STORAGE_KEYS.dailyHistory, JSON.stringify(dailyHistory)).catch((e) =>
+    console.warn('[stats] persist dailyHistory error', e),
   );
 }
 
@@ -203,6 +228,8 @@ interface StatsContextValue {
   dailyGoal: number;
   /** When true, streak only increments on correct answers */
   streakCorrectOnly: boolean;
+  /** Per-day answer counts: date → count (last 30 days). */
+  dailyHistory: Record<string, number>;
   /** Record one answer. Updates both daily count and all-time stats. */
   addAnswer: (isCorrect: boolean) => void;
   /** Toggle streak counting mode. */
@@ -226,6 +253,7 @@ const StatsContext = createContext<StatsContextValue>({
   todayCorrect: 0,
   dailyGoal: 20,
   streakCorrectOnly: false,
+  dailyHistory: {},
   addAnswer: () => {},
   setStreakCorrectOnly: () => {},
   resetStats: async () => {},
@@ -293,6 +321,7 @@ export function StatsProvider({ children }: { children: React.ReactNode }) {
       todayCorrect: state.todayCorrect,
       dailyGoal: state.dailyGoal,
       streakCorrectOnly: state.streakCorrectOnly,
+      dailyHistory: state.dailyHistory,
       isLoaded: state._loaded,
       addAnswer,
       setStreakCorrectOnly,
@@ -308,6 +337,7 @@ export function StatsProvider({ children }: { children: React.ReactNode }) {
       state.todayCorrect,
       state.dailyGoal,
       state.streakCorrectOnly,
+      state.dailyHistory,
       state._loaded,
       addAnswer,
       setStreakCorrectOnly,

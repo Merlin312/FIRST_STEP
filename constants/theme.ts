@@ -38,6 +38,7 @@ export const Colors = {
     tabIconSelected: Blue[600],
     // Семантичні кольори поверхонь
     surface: Blue[50],
+    cardBackground: Blue[100], // slightly deeper than surface, for panel cards
     surfaceBorder: Blue[200],
     mutedText: Slate[500],
     subtleText: Slate[400],
@@ -55,7 +56,8 @@ export const Colors = {
     tabIconSelected: Blue[400],
     // Семантичні кольори поверхонь
     surface: Slate[800],
-    surfaceBorder: Slate[700],
+    cardBackground: Slate[700], // slightly lighter than surface, for cards inside panels
+    surfaceBorder: Slate[600], // more visible border (was Slate[700])
     mutedText: Slate[400],
     subtleText: Slate[500],
     // Семантичні кольори стану
@@ -67,18 +69,21 @@ export const Colors = {
 
 export type ButtonState = 'idle' | 'correct' | 'wrong' | 'disabled';
 
-export const ButtonColors: Record<'light' | 'dark', Record<ButtonState, { bg: string; text: string; border: string }>> = {
+export const ButtonColors: Record<
+  'light' | 'dark',
+  Record<ButtonState, { bg: string; text: string; border: string }>
+> = {
   light: {
-    idle:     { bg: Blue[50],    text: Blue[900],   border: Blue[200]   },
-    correct:  { bg: '#dcfce7',   text: '#166534',   border: '#22c55e'   },
-    wrong:    { bg: '#fee2e2',   text: '#991b1b',   border: '#ef4444'   },
-    disabled: { bg: Slate[50],   text: Slate[400],  border: Slate[200]  },
+    idle: { bg: Blue[50], text: Blue[900], border: Blue[200] },
+    correct: { bg: '#dcfce7', text: '#166534', border: '#22c55e' },
+    wrong: { bg: '#fee2e2', text: '#991b1b', border: '#ef4444' },
+    disabled: { bg: Slate[50], text: Slate[400], border: Slate[200] },
   },
   dark: {
-    idle:     { bg: Slate[800],  text: Blue[200],   border: Slate[700]  },
-    correct:  { bg: '#14532d',   text: '#86efac',   border: '#22c55e'   },
-    wrong:    { bg: '#450a0a',   text: '#fca5a5',   border: '#ef4444'   },
-    disabled: { bg: Slate[900],  text: Slate[600],  border: Slate[800]  },
+    idle: { bg: Slate[800], text: Blue[200], border: Slate[700] },
+    correct: { bg: '#14532d', text: '#86efac', border: '#22c55e' },
+    wrong: { bg: '#450a0a', text: '#fca5a5', border: '#ef4444' },
+    disabled: { bg: Slate[900], text: Slate[600], border: Slate[800] },
   },
 } as const;
 

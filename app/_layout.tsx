@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import Constants from 'expo-constants';
 import * as SplashScreen from 'expo-splash-screen';
 import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -16,7 +17,7 @@ import { StatsProvider } from '@/contexts/stats-context';
 
 // Show notifications as banners when app is in foreground (iOS only — Android always shows them)
 // expo-notifications has no web support — use require() so Metro excludes it from the web bundle
-if (Platform.OS !== 'web') {
+if (Platform.OS !== 'web' && Constants.executionEnvironment !== 'storeClient') {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const Notifications = require('expo-notifications') as typeof import('expo-notifications');
   Notifications.setNotificationHandler({
