@@ -21,7 +21,7 @@ export const unstable_settings = {
 };
 
 function RootLayoutInner() {
-  const { colorScheme } = useAppTheme();
+  const { colorScheme, isThemeLoaded } = useAppTheme();
   const router = useRouter();
   const [isReady, setIsReady] = useState(false);
 
@@ -37,11 +37,13 @@ function RootLayoutInner() {
   }, []);
 
   useEffect(() => {
-    if (isReady) {
+    // Wait for both navigation readiness AND theme to load before hiding splash.
+    // This prevents a flicker where the wrong theme briefly appears.
+    if (isReady && isThemeLoaded) {
       // expo-splash-screen applies a short fade-out automatically
       SplashScreen.hideAsync().catch(() => {});
     }
-  }, [isReady]);
+  }, [isReady, isThemeLoaded]);
 
   if (!isReady) {
     const bg = colorScheme === 'dark' ? Colors.dark.background : Colors.light.background;

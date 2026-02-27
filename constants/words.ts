@@ -509,7 +509,7 @@ const ADVERBS = tag(
     { en: 'too', ua: 'теж' },
     { en: 'away', ua: 'геть' },
     { en: 'ago', ua: 'тому' },
-    { en: 'yet', ua: 'вже' },
+    { en: 'yet', ua: 'досі' },
     { en: 'perhaps', ua: 'можливо' },
     { en: 'suddenly', ua: 'раптово' },
     { en: 'especially', ua: 'особливо' },

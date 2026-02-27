@@ -8,17 +8,17 @@
 
 ## Tech Stack
 
-| Layer | Technology |
-|---|---|
-| Framework | Expo SDK 54, React Native 0.81.5, React 19 |
-| Routing | expo-router v6 (file-based routing) |
-| Navigation | @react-navigation/native + @react-navigation/bottom-tabs |
-| Storage | @react-native-async-storage/async-storage |
-| Animation | react-native-reanimated v4 |
-| Gestures | react-native-gesture-handler |
-| Icons (iOS) | expo-symbols (SF Symbols) |
-| Icons (Android/Web) | @expo/vector-icons (MaterialIcons) |
-| Language | TypeScript (strict) |
+| Layer               | Technology                                               |
+| ------------------- | -------------------------------------------------------- |
+| Framework           | Expo SDK 54, React Native 0.81.5, React 19               |
+| Routing             | expo-router v6 (file-based routing)                      |
+| Navigation          | @react-navigation/native + @react-navigation/bottom-tabs |
+| Storage             | @react-native-async-storage/async-storage                |
+| Animation           | react-native-reanimated v4                               |
+| Gestures            | react-native-gesture-handler                             |
+| Icons (iOS)         | expo-symbols (SF Symbols)                                |
+| Icons (Android/Web) | @expo/vector-icons (MaterialIcons)                       |
+| Language            | TypeScript (strict)                                      |
 
 ---
 
@@ -42,20 +42,20 @@ components/
     └── icon-symbol.ios.tsx   iOS SF Symbols via expo-symbols
 
 contexts/
-└── theme-context.tsx    AppThemeProvider + useAppTheme() (system/light/dark)
+├── theme-context.tsx    AppThemeProvider + useAppTheme() (system/light/dark)
+└── stats-context.tsx    StatsProvider + useStatsContext() (all-time stats, daily progress, streak)
 
 hooks/
-├── use-daily-progress.ts  Today's word count + dailyGoal (AsyncStorage)
 ├── use-device.ts          Responsive layout: isTablet, contentWidth, horizontalPadding
 ├── use-drawer.ts          isOpen / open / close / toggle state
 ├── use-quiz.ts            Quiz state machine (queue, options, score)
-├── use-stats.ts           All-time stats + streak (AsyncStorage)
 ├── use-color-scheme.ts    Re-export of RN useColorScheme (legacy, prefer useAppTheme)
 └── use-theme-color.ts     Resolves theme color by key
 
 constants/
-├── theme.ts     Blue palette (Tailwind), Colors light/dark, Fonts
-└── words.ts     518 English-Ukrainian word pairs (Word: { en, ua })
+├── storage-keys.ts  All AsyncStorage key constants (STORAGE_KEYS)
+├── theme.ts         Blue palette (Tailwind), Colors light/dark, Fonts
+└── words.ts         518 English-Ukrainian word pairs (Word: { en, ua })
 ```
 
 ---
@@ -63,30 +63,31 @@ constants/
 ## Architecture Decisions
 
 ### Theme
+
 - `useAppTheme()` (from `contexts/theme-context.tsx`) — use this everywhere instead of `useColorScheme()`
 - Stores preference in AsyncStorage key `'themeMode'` (`'system' | 'light' | 'dark'`)
 - `AppThemeProvider` wraps the entire app in `_layout.tsx`
 
 ### Responsive Layout
+
 - `useDevice()` hook returns `horizontalPadding` and `contentWidth`
 - Tablet threshold: `width >= 768dp`; max content width: `520px`
 - Use `useWindowDimensions()` inside components (not `Dimensions.get()` at module level)
 
 ### AsyncStorage Keys
 
-| Key | Type | Description |
-|---|---|---|
-| `hasSeenOnboarding` | `'true'` / null | First-launch gate |
-| `dailyGoal` | number string | 10 / 20 / 50 |
-| `dailyCount_{dateString}` | number string | Words answered today |
-| `themeMode` | `'system'`/`'light'`/`'dark'` | User theme preference |
-| `statsTotal` | number string | All-time words answered |
-| `statsCorrect` | number string | All-time correct answers |
-| `statsWrong` | number string | All-time wrong answers |
-| `statsStreak` | number string | Consecutive active days |
-| `statsLastDate` | dateString | Date of last activity |
+| Key                    | Type                                                | Description                                                      |
+| ---------------------- | --------------------------------------------------- | ---------------------------------------------------------------- |
+| `hasSeenOnboarding`    | `'true'` / null                                     | First-launch gate                                                |
+| `dailyGoal`            | number string                                       | 10 / 20 / 50                                                     |
+| `themeMode`            | `'system'`/`'light'`/`'dark'`                       | User theme preference                                            |
+| `v2_stats`             | JSON blob                                           | All-time stats + daily progress + streak (see stats-context.tsx) |
+| `wordCategory`         | `'verb'`/`'noun'`/`'adjective'`/`'adverb'` / absent | Active word category filter                                      |
+| `autoAdvance`          | `'true'`/`'false'`                                  | Whether quiz auto-advances after answer                          |
+| `celebrationShownDate` | `'YYYY-MM-DD'`                                      | Date when daily goal celebration was last shown                  |
 
 ### Side Panel (DrawerPanel)
+
 - **Not** a navigation drawer — it's an animated absolute-position overlay
 - Uses `react-native-reanimated` `useSharedValue` + `withSpring`
 - Opened by ☰ button in the home screen header row
@@ -94,6 +95,7 @@ constants/
 - `isOpen` state lives in `useDrawer()` hook inside `index.tsx`
 
 ### Quiz Logic (`use-quiz.ts`)
+
 - 500+ words shuffled via Fisher-Yates into a queue
 - 6 options per question: 1 correct + 5 random from full word pool
 - Queue restarts (reshuffled) when exhausted
@@ -116,11 +118,13 @@ constants/
 ## Placeholders (Future Features)
 
 ### Auth (in DrawerPanel)
+
 - Buttons "Увійти" / "Реєстрація" show `Alert` "Скоро буде"
 - When implementing: add auth screens under `app/auth/`
 - Store auth token in SecureStore (not AsyncStorage)
 
 ### Language Selection (in DrawerPanel)
+
 - Only Ukrainian shown; "Додати мову" button is disabled
 - When implementing: add `targetLanguage` AsyncStorage key
 - Add language-specific word lists to `constants/`

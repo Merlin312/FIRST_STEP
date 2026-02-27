@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 import { useFocusEffect } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -62,21 +62,27 @@ export default function HomeScreen() {
 
   const [showCelebration, setShowCelebration] = useState(false);
   // Stores the ISO date ('YYYY-MM-DD') when the celebration was last shown.
-  // Empty string means not shown yet today. Resets naturally when the date changes.
+  // Persisted to AsyncStorage so it survives component unmounts within the same day.
   const celebrationShownDateRef = useRef('');
 
   // Load persisted quiz settings on mount
   useEffect(() => {
-    AsyncStorage.multiGet([STORAGE_KEYS.wordCategory, STORAGE_KEYS.autoAdvance])
+    AsyncStorage.multiGet([
+      STORAGE_KEYS.wordCategory,
+      STORAGE_KEYS.autoAdvance,
+      STORAGE_KEYS.celebrationShownDate,
+    ])
       .then((entries) => {
         // Lookup by key — avoids relying on positional array order
         const cat = entries.find(([k]) => k === STORAGE_KEYS.wordCategory)?.[1];
         const adv = entries.find(([k]) => k === STORAGE_KEYS.autoAdvance)?.[1];
+        const cel = entries.find(([k]) => k === STORAGE_KEYS.celebrationShownDate)?.[1];
         if (cat) setCategory(cat as WordCategory);
         if (adv !== null && adv !== undefined) setAutoAdvance(adv !== 'false');
+        if (cel) celebrationShownDateRef.current = cel;
       })
       .catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, []);
 
   const handleCategoryChange = useCallback(async (cat: WordCategory | undefined) => {
@@ -123,12 +129,14 @@ export default function HomeScreen() {
     if (celebrationShownDateRef.current === today) return; // already shown today
     const timer = setTimeout(() => {
       celebrationShownDateRef.current = today;
+      AsyncStorage.setItem(STORAGE_KEYS.celebrationShownDate, today).catch(() => {});
       setShowCelebration(true);
     }, QUIZ_ADVANCE_DELAY_MS + 100);
     return () => clearTimeout(timer);
   }, [todayCount, dailyGoal]);
 
   // Animated progress bar
+  const goalReached = dailyGoal > 0 && todayCount >= dailyGoal;
   const progressRatio = Math.min(todayCount / Math.max(dailyGoal, 1), 1);
   const progressAnim = useSharedValue(progressRatio);
   useEffect(() => {
@@ -160,13 +168,17 @@ export default function HomeScreen() {
     return 'disabled';
   };
 
-  // Swipe from left edge to open drawer
-  const openDrawerGesture = Gesture.Pan().onEnd((e) => {
-    const startX = e.absoluteX - e.translationX;
-    if (e.translationX > SWIPE_THRESHOLD && startX < SWIPE_OPEN_EDGE) {
-      runOnJS(drawer.open)();
-    }
-  });
+  // Swipe from left edge to open drawer — memoized to avoid re-registering on every render
+  const openDrawerGesture = useMemo(
+    () =>
+      Gesture.Pan().onEnd((e) => {
+        const startX = e.absoluteX - e.translationX;
+        if (e.translationX > SWIPE_THRESHOLD && startX < SWIPE_OPEN_EDGE) {
+          runOnJS(drawer.open)();
+        }
+      }),
+    [drawer.open],
+  );
 
   return (
     <GestureDetector gesture={openDrawerGesture}>
@@ -189,11 +201,15 @@ export default function HomeScreen() {
           {/* Feedback row + menu button */}
           <View style={styles.header}>
             <Pressable
-              style={({ pressed }) => [styles.menuBtn, pressed && { opacity: 0.6 }]}
+              style={({ pressed }) => [
+                styles.menuBtn,
+                (pressed || drawer.isOpen) && { opacity: 0.5 },
+              ]}
               onPress={drawer.open}
               hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
               accessibilityLabel="Відкрити меню"
-              accessibilityRole="button">
+              accessibilityRole="button"
+              accessibilityState={{ expanded: drawer.isOpen }}>
               <Text
                 style={[styles.menuIcon, { color: isDark ? Blue[300] : Blue[600] }]}
                 maxFontSizeMultiplier={1.2}>
@@ -230,7 +246,7 @@ export default function HomeScreen() {
               <Animated.View
                 style={[
                   styles.progressFill,
-                  { backgroundColor: isDark ? Blue[400] : Blue[600] },
+                  { backgroundColor: goalReached ? '#22c55e' : isDark ? Blue[400] : Blue[600] },
                   progressStyle,
                 ]}
               />
@@ -251,11 +267,7 @@ export default function HomeScreen() {
                 borderColor: isDark ? Blue[700] : Blue[400],
               },
             ]}>
-            <ThemedText
-              type="title"
-              style={styles.wordText}
-              adjustsFontSizeToFit
-              numberOfLines={1}>
+            <ThemedText type="title" style={styles.wordText} adjustsFontSizeToFit numberOfLines={1}>
               {currentWord?.en ?? ''}
             </ThemedText>
             <Text

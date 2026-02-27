@@ -29,14 +29,16 @@ function SlideIntro({ isDark }: { isDark: boolean }) {
   const palette = isDark ? Colors.dark : Colors.light;
   return (
     <View style={[styles.slide, { backgroundColor: palette.background }]}>
-      <Text style={styles.emoji} accessibilityLabel="Книги">📚</Text>
+      <Text style={styles.emoji} accessibilityLabel="Книги">
+        📚
+      </Text>
       <Text style={[styles.slideTitle, { color: palette.text }]}>Вивчи 500 слів</Text>
       <Text style={[styles.slideSubtitle, { color: isDark ? Blue[300] : Blue[700] }]}>
         Найпоширеніші слова англійської мови — підібрані так, щоб охопити 90% текстів
       </Text>
       <Text style={[styles.slideBody, { color: isDark ? Slate[400] : Slate[600] }]}>
-        Метод інтервального повторення: вибери правильний переклад з 6 варіантів і рухайся далі.
-        Чим частіше практикуєш — тим краще запам'ятовуєш.
+        Метод інтервального повторення: вибери правильний переклад з 6 варіантів і рухайся далі. Чим
+        частіше практикуєш — тим краще запамятовуєш.
       </Text>
     </View>
   );
@@ -167,7 +169,9 @@ function SlideGoal({
         {isFinishing ? (
           <ActivityIndicator color="#ffffff" />
         ) : (
-          <Text style={styles.startText} maxFontSizeMultiplier={1.2}>Почати →</Text>
+          <Text style={styles.startText} maxFontSizeMultiplier={1.2}>
+            Почати →
+          </Text>
         )}
       </Pressable>
     </View>
@@ -212,15 +216,16 @@ export default function OnboardingScreen() {
     let content;
     if (item === 'intro') content = <SlideIntro isDark={isDark} />;
     else if (item === 'how') content = <SlideHowItWorks isDark={isDark} />;
-    else content = (
-      <SlideGoal
-        isDark={isDark}
-        selected={selectedGoal}
-        onSelect={setSelectedGoal}
-        onStart={finish}
-        isFinishing={isFinishing}
-      />
-    );
+    else
+      content = (
+        <SlideGoal
+          isDark={isDark}
+          selected={selectedGoal}
+          onSelect={setSelectedGoal}
+          onStart={finish}
+          isFinishing={isFinishing}
+        />
+      );
     return <View style={{ width: screenWidth, flex: 1 }}>{content}</View>;
   };
 
@@ -248,18 +253,25 @@ export default function OnboardingScreen() {
 
       {/* Bottom chrome */}
       <View style={[styles.chrome, { backgroundColor: palette.background }]}>
-        {/* Dot indicators */}
+        {/* Dot indicators — tappable to jump to any slide */}
         <View style={styles.dots}>
           {SLIDE_KEYS.map((key, i) => (
-            <View
+            <Pressable
               key={key}
-              style={[
-                styles.dot,
-                { backgroundColor: i === currentIndex ? Blue[600] : Blue[200] },
-              ]}
-              accessibilityLabel={`Слайд ${i + 1} з ${SLIDE_KEYS.length}`}
-              accessibilityRole="image"
-            />
+              onPress={() => {
+                listRef.current?.scrollToIndex({ index: i, animated: true });
+                setCurrentIndex(i);
+              }}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              accessibilityLabel={`Перейти до слайду ${i + 1} з ${SLIDE_KEYS.length}`}
+              accessibilityRole="button">
+              <View
+                style={[
+                  styles.dot,
+                  { backgroundColor: i === currentIndex ? Blue[600] : Blue[200] },
+                ]}
+              />
+            </Pressable>
           ))}
         </View>
 

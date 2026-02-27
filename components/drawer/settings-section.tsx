@@ -2,17 +2,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-} from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 
 import { STORAGE_KEYS } from '@/constants/storage-keys';
 import { Blue, Colors } from '@/constants/theme';
 import type { WordCategory } from '@/constants/words';
-import { type ThemeMode, useAppTheme } from '@/contexts/theme-context';
 import { useStatsContext } from '@/contexts/stats-context';
+import { type ThemeMode, useAppTheme } from '@/contexts/theme-context';
 
 const SPRING = {
   damping: 32,
@@ -75,7 +71,8 @@ export function SettingsSection({
 }: SettingsSectionProps) {
   const palette: Palette = isDark ? Colors.dark : Colors.light;
   const { themeMode, setThemeMode } = useAppTheme();
-  const { dailyGoal, streakCorrectOnly, setStreakCorrectOnly, reloadDailyGoal, resetStats } = useStatsContext();
+  const { dailyGoal, streakCorrectOnly, setStreakCorrectOnly, reloadDailyGoal, resetStats } =
+    useStatsContext();
   const router = useRouter();
 
   const [isExpanded, setIsExpanded] = useState(false);
@@ -99,7 +96,10 @@ export function SettingsSection({
   const toggle = () => {
     const next = !isExpanded;
     setIsExpanded(next);
-    heightValue.value = withSpring(next ? (contentHeight.current || FALLBACK_CONTENT_HEIGHT) : 0, SPRING);
+    heightValue.value = withSpring(
+      next ? contentHeight.current || FALLBACK_CONTENT_HEIGHT : 0,
+      SPRING,
+    );
     chevronAngle.value = withSpring(next ? 1 : 0, SPRING);
   };
 
@@ -151,8 +151,10 @@ export function SettingsSection({
           accessibilityLabel="Налаштування"
           accessibilityRole="button"
           accessibilityState={{ expanded: isExpanded }}>
-          <Text style={[styles.headerLabel, { color: palette.mutedText }]} maxFontSizeMultiplier={1.2}>
-            ⚙️  НАЛАШТУВАННЯ
+          <Text
+            style={[styles.headerLabel, { color: palette.mutedText }]}
+            maxFontSizeMultiplier={1.2}>
+            ⚙️ НАЛАШТУВАННЯ
           </Text>
           <Animated.View style={chevronStyle}>
             <Text style={[styles.chevron, { color: palette.mutedText }]}>›</Text>
@@ -166,10 +168,9 @@ export function SettingsSection({
               const h = e.nativeEvent.layout.height;
               if (h > 0) contentHeight.current = h;
             }}>
-
             {/* ─── Вигляд ─── */}
             <InnerDivider palette={palette} />
-            <SubLabel label="🎨  ВИГЛЯД" palette={palette} />
+            <SubLabel label="🎨  Тема" palette={palette} />
             <View style={styles.pillRow}>
               {THEME_OPTIONS.map(({ label, value }) => (
                 <SelectPill
@@ -194,7 +195,7 @@ export function SettingsSection({
                 { backgroundColor: palette.surface, borderColor: palette.surfaceBorder },
               ]}>
               <Text style={[styles.langText, { color: palette.text }]} maxFontSizeMultiplier={1.2}>
-                🇺🇦  Українська
+                🇺🇦 Українська
               </Text>
               <Text style={{ color: Blue[500] }}>✓</Text>
             </View>
@@ -202,7 +203,7 @@ export function SettingsSection({
               <Text
                 style={[styles.addLangText, { color: palette.subtleText }]}
                 maxFontSizeMultiplier={1.2}>
-                + Додати мову  (скоро)
+                + Додати мову (скоро)
               </Text>
             </View>
 
@@ -304,7 +305,7 @@ export function SettingsSection({
               <Text
                 style={[styles.secondaryBtnText, { color: isDark ? Blue[300] : Blue[600] }]}
                 maxFontSizeMultiplier={1.2}>
-                📖  Переглянути туторіал
+                📖 Переглянути туторіал
               </Text>
             </Pressable>
 
@@ -324,7 +325,7 @@ export function SettingsSection({
                 <Text
                   style={[styles.dangerText, { color: palette.danger }]}
                   maxFontSizeMultiplier={1.2}>
-                  🗑  Скинути статистику
+                  🗑 Скинути статистику
                 </Text>
               </Pressable>
               <Pressable
@@ -339,11 +340,10 @@ export function SettingsSection({
                 <Text
                   style={[styles.dangerText, { color: palette.danger }]}
                   maxFontSizeMultiplier={1.2}>
-                  🔄  Почати спочатку
+                  🔄 Почати спочатку
                 </Text>
               </Pressable>
             </View>
-
           </View>
         </Animated.View>
       </View>
@@ -364,9 +364,7 @@ export function SettingsSection({
             style={[styles.dialogCard, { backgroundColor: palette.background }]}
             onPress={() => {}}
             accessibilityRole="none">
-            <Text
-              style={[styles.dialogTitle, { color: palette.text }]}
-              maxFontSizeMultiplier={1.2}>
+            <Text style={[styles.dialogTitle, { color: palette.text }]} maxFontSizeMultiplier={1.2}>
               {pendingAction ? DIALOG_CONFIG[pendingAction].title : ''}
             </Text>
             <Text
@@ -397,9 +395,7 @@ export function SettingsSection({
                 ]}
                 onPress={handleConfirm}
                 accessibilityRole="button">
-                <Text
-                  style={[styles.dialogBtnText, { color: '#fff' }]}
-                  maxFontSizeMultiplier={1.2}>
+                <Text style={[styles.dialogBtnText, { color: '#fff' }]} maxFontSizeMultiplier={1.2}>
                   {pendingAction ? DIALOG_CONFIG[pendingAction].confirm : ''}
                 </Text>
               </Pressable>

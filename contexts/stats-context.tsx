@@ -30,8 +30,8 @@ interface StatsState {
   lastActiveDate: string; // 'YYYY-MM-DD', or '' on first launch
   // Daily progress (resets automatically when todayDate !== today)
   todayCount: number;
-  todayCorrect: number;   // correct answers today
-  todayDate: string;      // 'YYYY-MM-DD', or '' on first launch
+  todayCorrect: number; // correct answers today
+  todayDate: string; // 'YYYY-MM-DD', or '' on first launch
   // Settings
   dailyGoal: number;
   streakCorrectOnly: boolean; // when true, streak increments only on correct answers
@@ -86,14 +86,15 @@ function reducer(state: StatsState, action: Action): StatsState {
       // Streak — only recalculated on the FIRST answer of a new day
       let { streak, lastActiveDate } = state;
       if (state.lastActiveDate !== today) {
-        // Always update lastActiveDate to record activity
-        lastActiveDate = today;
-
         // Increment streak based on mode:
         //   streakCorrectOnly=false (default): any answer increments streak
         //   streakCorrectOnly=true:            only correct answers increment streak
         const shouldIncrement = !state.streakCorrectOnly || action.isCorrect;
         if (shouldIncrement) {
+          // Record activity only when we actually count this answer toward the streak.
+          // If we updated lastActiveDate on WRONG answers in streakCorrectOnly mode,
+          // the next day would falsely think yesterday was an active day.
+          lastActiveDate = today;
           streak = state.lastActiveDate === dayBefore(today) ? state.streak + 1 : 1;
         }
       }
@@ -282,9 +283,7 @@ export function StatsProvider({ children }: { children: React.ReactNode }) {
       totalCorrect: state.totalCorrect,
       totalWrong: state.totalAnswered - state.totalCorrect,
       accuracy:
-        state.totalAnswered > 0
-          ? Math.round((state.totalCorrect / state.totalAnswered) * 100)
-          : 0,
+        state.totalAnswered > 0 ? Math.round((state.totalCorrect / state.totalAnswered) * 100) : 0,
       streak: state.streak,
       todayCount: state.todayCount,
       todayCorrect: state.todayCorrect,

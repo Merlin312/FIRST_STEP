@@ -8,4 +8,6 @@ export const STORAGE_KEYS = {
   wordCategory: 'wordCategory',
   /** Whether the quiz auto-advances after an answer ('true' | 'false'). Default: true. */
   autoAdvance: 'autoAdvance',
+  /** ISO date ('YYYY-MM-DD') of the last day the celebration modal was shown. */
+  celebrationShownDate: 'celebrationShownDate',
 } as const;

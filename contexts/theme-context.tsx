@@ -12,12 +12,15 @@ interface ThemeContextValue {
   /** What the user picked: system / light / dark */
   themeMode: ThemeMode;
   setThemeMode: (mode: ThemeMode) => void;
+  /** True once the stored preference has been read from AsyncStorage. */
+  isThemeLoaded: boolean;
 }
 
 const ThemeContext = createContext<ThemeContextValue>({
   colorScheme: 'light',
   themeMode: 'system',
   setThemeMode: () => {},
+  isThemeLoaded: false,
 });
 
 function resolve(mode: ThemeMode, system: ColorSchemeName): 'light' | 'dark' {
@@ -29,6 +32,7 @@ function resolve(mode: ThemeMode, system: ColorSchemeName): 'light' | 'dark' {
 export function AppThemeProvider({ children }: { children: React.ReactNode }) {
   const system = useColorScheme();
   const [themeMode, setThemeModeState] = useState<ThemeMode>('system');
+  const [isThemeLoaded, setIsThemeLoaded] = useState(false);
 
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEYS.themeMode)
@@ -36,9 +40,11 @@ export function AppThemeProvider({ children }: { children: React.ReactNode }) {
         if (val === 'light' || val === 'dark' || val === 'system') {
           setThemeModeState(val);
         }
+        setIsThemeLoaded(true);
       })
       .catch((e) => {
         console.warn('[theme-context] failed to load theme preference', e);
+        setIsThemeLoaded(true);
       });
   }, []);
 
@@ -52,15 +58,11 @@ export function AppThemeProvider({ children }: { children: React.ReactNode }) {
   const colorScheme = resolve(themeMode, system);
 
   const value = useMemo(
-    () => ({ colorScheme, themeMode, setThemeMode }),
-    [colorScheme, themeMode, setThemeMode],
+    () => ({ colorScheme, themeMode, setThemeMode, isThemeLoaded }),
+    [colorScheme, themeMode, setThemeMode, isThemeLoaded],
   );
 
-  return (
-    <ThemeContext.Provider value={value}>
-      {children}
-    </ThemeContext.Provider>
-  );
+  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
 
 export function useAppTheme(): ThemeContextValue {
