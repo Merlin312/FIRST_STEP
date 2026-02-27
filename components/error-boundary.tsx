@@ -1,5 +1,5 @@
-import { Appearance, Component, type ReactNode } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Component, type ReactNode } from 'react';
+import { Appearance, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Blue, Colors } from '@/constants/theme';
 

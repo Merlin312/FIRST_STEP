@@ -1,10 +1,14 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as Notifications from 'expo-notifications';
 import { useCallback } from 'react';
 import { Platform } from 'react-native';
 
 import { STORAGE_KEYS } from '@/constants/storage-keys';
 import type { ReminderTimePreset } from './use-reminder-settings';
+
+// Lazy require so the module initialiser (push-token auto-registration) does
+// not run at import time — avoids Expo Go "push not supported" errors.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const getN = () => require('expo-notifications') as typeof import('expo-notifications');
 
 const NOTIFICATION_MESSAGES = [
   'Час практикуватись! Один раунд — і мова стає ближчою.',
@@ -35,9 +39,10 @@ export function usePushReminders() {
   const requestPermissions = useCallback(async (): Promise<boolean> => {
     if (Platform.OS === 'web') return false;
     try {
-      const { status: existing } = await Notifications.getPermissionsAsync();
+      const N = getN();
+      const { status: existing } = await N.getPermissionsAsync();
       if (existing === 'granted') return true;
-      const { status } = await Notifications.requestPermissionsAsync();
+      const { status } = await N.requestPermissionsAsync();
       return status === 'granted';
     } catch {
       return false;
@@ -49,7 +54,7 @@ export function usePushReminders() {
     try {
       const id = await AsyncStorage.getItem(STORAGE_KEYS.scheduledNotificationId);
       if (id) {
-        await Notifications.cancelScheduledNotificationAsync(id);
+        await getN().cancelScheduledNotificationAsync(id);
         await AsyncStorage.removeItem(STORAGE_KEYS.scheduledNotificationId);
       }
     } catch (e) {
@@ -66,15 +71,16 @@ export function usePushReminders() {
       if (Platform.OS === 'web') return;
       try {
         await cancelScheduled();
+        const N = getN();
         const { hour, minute } = parseTime(time);
-        const id = await Notifications.scheduleNotificationAsync({
+        const id = await N.scheduleNotificationAsync({
           content: {
             title: 'First Step 📚',
             body: getRandomMessage(),
             sound: true,
           },
           trigger: {
-            type: Notifications.SchedulableTriggerInputTypes.DAILY,
+            type: N.SchedulableTriggerInputTypes.DAILY,
             hour,
             minute,
           },

@@ -1,11 +1,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import * as Notifications from 'expo-notifications';
 import * as SplashScreen from 'expo-splash-screen';
 import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Platform, StyleSheet, View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 
 import { STORAGE_KEYS } from '@/constants/storage-keys';
@@ -15,7 +15,10 @@ import { AppThemeProvider, useAppTheme } from '@/contexts/theme-context';
 import { StatsProvider } from '@/contexts/stats-context';
 
 // Show notifications as banners when app is in foreground (iOS only — Android always shows them)
+// expo-notifications has no web support — use require() so Metro excludes it from the web bundle
 if (Platform.OS !== 'web') {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const Notifications = require('expo-notifications') as typeof import('expo-notifications');
   Notifications.setNotificationHandler({
     handleNotification: async () => ({
       shouldShowBanner: true,
@@ -81,17 +84,22 @@ function RootLayoutInner() {
 
 export default function RootLayout() {
   return (
-    <ErrorBoundary>
-      <AppThemeProvider>
-        <StatsProvider>
-          <RootLayoutInner />
-        </StatsProvider>
-      </AppThemeProvider>
-    </ErrorBoundary>
+    <GestureHandlerRootView style={styles.fill}>
+      <ErrorBoundary>
+        <AppThemeProvider>
+          <StatsProvider>
+            <RootLayoutInner />
+          </StatsProvider>
+        </AppThemeProvider>
+      </ErrorBoundary>
+    </GestureHandlerRootView>
   );
 }
 
 const styles = StyleSheet.create({
+  fill: {
+    flex: 1,
+  },
   loading: {
     flex: 1,
     justifyContent: 'center',
