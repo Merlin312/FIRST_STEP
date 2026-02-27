@@ -178,7 +178,7 @@ export function useQuiz(category?: WordCategory) {
   const readyToAdvance = state.selected !== null;
 
   // Підказка: перша літера + многокрапка
-  const hint = state.hintRevealed ? state.currentWord.ua[0] + '…' : null;
+  const hint = state.hintRevealed ? (state.currentWord.ua[0] ?? '?') + '…' : null;
 
   // Загальна кількість слів у поточній категорії / пулі
   const poolSize = wordPoolRef.current.length;

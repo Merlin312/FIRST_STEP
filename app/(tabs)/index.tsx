@@ -103,6 +103,9 @@ export default function HomeScreen() {
     [reminder, scheduleDaily],
   );
 
+  // Prevents double-counting stats when two taps arrive before React flushes state
+  const answeredRef = useRef(false);
+
   const [showCelebration, setShowCelebration] = useState(false);
   // Stores the ISO date ('YYYY-MM-DD') when the celebration was last shown.
   // Persisted to AsyncStorage so it survives component unmounts within the same day.
@@ -177,6 +180,11 @@ export default function HomeScreen() {
     return () => clearTimeout(timer);
   }, [todayCount, dailyGoal]);
 
+  // Reset double-tap guard whenever a new word is shown
+  useEffect(() => {
+    answeredRef.current = false;
+  }, [currentWord]);
+
   // Auto-pronounce the English word whenever a new word appears
   useEffect(() => {
     if (currentWord) speak(currentWord.en);
@@ -199,7 +207,8 @@ export default function HomeScreen() {
   }));
 
   const handleAnswer = (option: string) => {
-    if (selected !== null || !isLoaded || !currentWord) return;
+    if (selected !== null || answeredRef.current || !isLoaded || !currentWord) return;
+    answeredRef.current = true;
     const correct = option === currentWord.ua;
     selectAnswer(option);
     addAnswer(correct);
@@ -296,7 +305,9 @@ export default function HomeScreen() {
               <Animated.View
                 style={[
                   styles.progressFill,
-                  { backgroundColor: goalReached ? '#22c55e' : isDark ? Blue[400] : Blue[600] },
+                  {
+                    backgroundColor: goalReached ? palette.success : isDark ? Blue[400] : Blue[600],
+                  },
                   progressStyle,
                 ]}
               />

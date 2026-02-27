@@ -490,8 +490,8 @@ function SelectPill({
         styles.pill,
         flex && { flex: 1 },
         {
-          backgroundColor: active ? Blue[600] : palette.background,
-          borderColor: active ? Blue[600] : palette.surfaceBorder,
+          backgroundColor: active ? (isDark ? Blue[500] : Blue[600]) : palette.background,
+          borderColor: active ? (isDark ? Blue[500] : Blue[600]) : palette.surfaceBorder,
         },
         pressed && !active && { opacity: 0.7 },
       ]}

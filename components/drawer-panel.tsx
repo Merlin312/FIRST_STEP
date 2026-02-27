@@ -145,7 +145,9 @@ export function DrawerPanel({
               hitSlop={12}
               accessibilityLabel="Закрити меню"
               accessibilityRole="button">
-              <Text style={[styles.closeBtnText, { color: isDark ? Blue[300] : Blue[600] }]}>
+              <Text
+                style={[styles.closeBtnText, { color: isDark ? Blue[300] : Blue[600] }]}
+                maxFontSizeMultiplier={1.2}>
                 ✕
               </Text>
             </Pressable>
@@ -177,7 +179,9 @@ export function DrawerPanel({
                 maxFontSizeMultiplier={1.2}>
                 ⚙️ Налаштування
               </Text>
-              <Text style={[styles.settingsChevron, { color: palette.subtleText }]}>
+              <Text
+                style={[styles.settingsChevron, { color: palette.subtleText }]}
+                maxFontSizeMultiplier={1.2}>
                 {showSettings ? '▲' : '▼'}
               </Text>
             </Pressable>

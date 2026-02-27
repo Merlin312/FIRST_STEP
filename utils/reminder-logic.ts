@@ -63,7 +63,7 @@ export function getReminderType(input: ReminderInput): ReminderType {
   // "At risk" window: after 20 hours of inactivity on a day with an active streak
   if (streak > 0 && lastActiveDate !== today) {
     const now = new Date();
-    const lastActive = lastActiveDate ? new Date(lastActiveDate) : null;
+    const lastActive = lastActiveDate ? new Date(lastActiveDate + 'T00:00:00') : null;
     if (lastActive) {
       const hoursSince = (now.getTime() - lastActive.getTime()) / (1000 * 60 * 60);
       if (hoursSince >= 20) return 'streak-at-risk';
