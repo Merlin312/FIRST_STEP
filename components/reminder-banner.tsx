@@ -3,7 +3,8 @@ import Animated, { FadeInDown, FadeOutUp } from 'react-native-reanimated';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 
 import { Blue, Colors } from '@/constants/theme';
-import { getReminderMessage, type ReminderType } from '@/utils/reminder-logic';
+import { useLanguage } from '@/contexts/language-context';
+import type { ReminderType } from '@/utils/reminder-logic';
 
 interface ReminderBannerProps {
   type: ReminderType;
@@ -22,13 +23,20 @@ export function ReminderBanner({
   onDismiss,
   onSnooze,
 }: ReminderBannerProps) {
+  const { strings: s } = useLanguage();
+
   if (!type) return null;
 
   const palette = isDark ? Colors.dark : Colors.light;
-  const message = getReminderMessage(type, streak, dailyGoal);
 
   const isAtRisk = type === 'streak-at-risk';
   const isMilestone = type === 'streak-milestone';
+
+  const message = isMilestone
+    ? s.reminderMilestone(streak)
+    : isAtRisk
+      ? s.reminderAtRisk(streak)
+      : s.reminderIncomplete(dailyGoal);
 
   const accentColor = isMilestone ? '#f59e0b' : isAtRisk ? '#ef4444' : Blue[600];
   const bgColor = isMilestone
@@ -79,12 +87,12 @@ export function ReminderBanner({
             ]}
             onPress={onSnooze}
             hitSlop={8}
-            accessibilityLabel="Відкласти нагадування на 2 години"
+            accessibilityLabel={s.snoozeA11y}
             accessibilityRole="button">
             <Text
               style={[styles.snoozeBtnText, { color: accentColor }]}
               maxFontSizeMultiplier={1.2}>
-              Пізніше
+              {s.snoozeLater}
             </Text>
           </Pressable>
         )}
@@ -92,7 +100,7 @@ export function ReminderBanner({
           style={({ pressed }) => [styles.dismissBtn, pressed && { opacity: 0.7 }]}
           onPress={onDismiss}
           hitSlop={8}
-          accessibilityLabel="Закрити нагадування"
+          accessibilityLabel={s.dismissA11y}
           accessibilityRole="button">
           <MaterialIcons name="close" size={16} color={palette.subtleText} />
         </Pressable>

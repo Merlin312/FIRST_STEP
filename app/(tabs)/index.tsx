@@ -29,14 +29,14 @@ import {
 } from '@/constants/ui';
 import { STORAGE_KEYS } from '@/constants/storage-keys';
 import { Blue, Colors } from '@/constants/theme';
-import type { WordCategory } from '@/constants/words';
+import type { WordCategory, TargetLanguage } from '@/constants/words';
 import { useAppTheme } from '@/contexts/theme-context';
 import { useStatsContext } from '@/contexts/stats-context';
+import { useLanguage } from '@/contexts/language-context';
 import { useDevice } from '@/hooks/use-device';
 import { useDrawer } from '@/hooks/use-drawer';
 import { usePushReminders } from '@/hooks/use-push-reminders';
-import { useQuiz } from '@/hooks/use-quiz';
-import type { QuizDirection } from '@/hooks/use-quiz';
+import { useQuiz, normalizeDirection, type QuizDirection } from '@/hooks/use-quiz';
 import { useReminderSettings } from '@/hooks/use-reminder-settings';
 import { useSound } from '@/hooks/use-sound';
 import { getReminderType } from '@/utils/reminder-logic';
@@ -46,14 +46,15 @@ export default function HomeScreen() {
   const [category, setCategory] = useState<WordCategory | undefined>(undefined);
   const [autoAdvance, setAutoAdvance] = useState(true);
   const [optionsCount, setOptionsCount] = useState<4 | 6 | 8>(6);
-  const [quizDirection, setQuizDirection] = useState<QuizDirection>('en-ua');
+  const [quizDirection, setQuizDirection] = useState<QuizDirection>('forward');
+  const [targetLanguage, setTargetLanguage] = useState<TargetLanguage>('en');
 
   const {
     currentWord,
     options,
     selected,
     readyToAdvance,
-    hint,
+    hintedOutOptions,
     queueIndex,
     poolSize,
     selectAnswer,
@@ -61,7 +62,7 @@ export default function HomeScreen() {
     skipWord,
     revealHint,
     resetQuiz,
-  } = useQuiz(category, optionsCount, quizDirection);
+  } = useQuiz(category, optionsCount, quizDirection, targetLanguage);
 
   const { colorScheme } = useAppTheme();
   const isDark = colorScheme === 'dark';
@@ -72,6 +73,7 @@ export default function HomeScreen() {
   const { horizontalPadding } = useDevice();
   const drawer = useDrawer();
   const { soundEnabled, speak, toggleSound } = useSound();
+  const { strings: s } = useLanguage();
 
   const reminder = useReminderSettings();
   const { requestPermissions, scheduleDaily, cancelScheduled } = usePushReminders();
@@ -131,6 +133,7 @@ export default function HomeScreen() {
       STORAGE_KEYS.celebrationShownDate,
       STORAGE_KEYS.optionsCount,
       STORAGE_KEYS.quizDirection,
+      STORAGE_KEYS.targetLanguage,
     ])
       .then((entries) => {
         const get = (key: string) => entries.find(([k]) => k === key)?.[1];
@@ -139,11 +142,13 @@ export default function HomeScreen() {
         const cel = get(STORAGE_KEYS.celebrationShownDate);
         const opts = get(STORAGE_KEYS.optionsCount);
         const dir = get(STORAGE_KEYS.quizDirection);
+        const tgt = get(STORAGE_KEYS.targetLanguage);
         if (cat) setCategory(cat as WordCategory);
         if (adv !== null && adv !== undefined) setAutoAdvance(adv !== 'false');
         if (cel) celebrationShownDateRef.current = cel;
         if (opts === '4' || opts === '8') setOptionsCount(opts === '4' ? 4 : 8);
-        if (dir === 'ua-en') setQuizDirection('ua-en');
+        setQuizDirection(normalizeDirection(dir));
+        if (tgt === 'es' || tgt === 'de') setTargetLanguage(tgt);
       })
       .catch(() => {});
   }, []);
@@ -188,6 +193,19 @@ export default function HomeScreen() {
     }
   }, []);
 
+  const handleTargetLanguageChange = useCallback(async (val: TargetLanguage) => {
+    setTargetLanguage(val);
+    setQuizDirection('forward');
+    try {
+      await AsyncStorage.multiSet([
+        [STORAGE_KEYS.targetLanguage, val],
+        [STORAGE_KEYS.quizDirection, 'forward'],
+      ]);
+    } catch (e) {
+      console.warn('[home] failed to persist targetLanguage', e);
+    }
+  }, []);
+
   // Re-read dailyGoal from storage on focus
   useFocusEffect(
     useCallback(() => {
@@ -220,9 +238,21 @@ export default function HomeScreen() {
     answeredRef.current = false;
   }, [currentWord]);
 
-  // Auto-pronounce the English word whenever a new word appears
+  // Maps TargetLanguage to BCP-47 TTS code
+  const ttsLang = (lang: TargetLanguage): string => {
+    if (lang === 'es') return 'es-ES';
+    if (lang === 'de') return 'de-DE';
+    return 'en-US';
+  };
+
+  // Auto-pronounce whenever a new word appears — language depends on quiz direction
   useEffect(() => {
-    if (currentWord) speak(currentWord.en);
+    if (!currentWord) return;
+    if (quizDirection === 'reverse') {
+      speak(currentWord.ua, 'uk-UA');
+    } else {
+      speak(currentWord.target, ttsLang(targetLanguage));
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentWord]);
 
@@ -293,7 +323,7 @@ export default function HomeScreen() {
   const handleAnswer = (option: string) => {
     if (selected !== null || answeredRef.current || !isLoaded || !currentWord) return;
     answeredRef.current = true;
-    const correctAnswer = quizDirection === 'en-ua' ? currentWord.ua : currentWord.en;
+    const correctAnswer = quizDirection === 'forward' ? currentWord.ua : currentWord.target;
     const correct = option === correctAnswer;
     selectAnswer(option);
     addAnswer(correct);
@@ -309,8 +339,11 @@ export default function HomeScreen() {
   };
 
   const getButtonState = (option: string): ButtonState => {
-    if (selected === null) return 'idle';
-    const correctAnswer = quizDirection === 'en-ua' ? currentWord?.ua : currentWord?.en;
+    if (selected === null) {
+      if (hintedOutOptions.includes(option)) return 'disabled';
+      return 'idle';
+    }
+    const correctAnswer = quizDirection === 'forward' ? currentWord?.ua : currentWord?.target;
     if (option === correctAnswer) return 'correct';
     if (option === selected) return 'wrong';
     return 'disabled';
@@ -346,6 +379,8 @@ export default function HomeScreen() {
           onOptionsCountChange={handleOptionsCountChange}
           quizDirection={quizDirection}
           onQuizDirectionChange={handleQuizDirectionChange}
+          targetLanguage={targetLanguage}
+          onTargetLanguageChange={handleTargetLanguageChange}
           reminderEnabled={reminder.reminderEnabled}
           reminderTime={reminder.reminderTime}
           reminderDays={reminder.reminderDays}
@@ -365,7 +400,7 @@ export default function HomeScreen() {
               ]}
               onPress={drawer.open}
               hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-              accessibilityLabel="Відкрити меню"
+              accessibilityLabel={s.openMenu}
               accessibilityRole="button"
               accessibilityState={{ expanded: drawer.isOpen }}>
               <MaterialIcons name="menu" size={24} color={isDark ? Blue[300] : Blue[600]} />
@@ -378,7 +413,7 @@ export default function HomeScreen() {
               <Text
                 style={[styles.progressGoalLabel, { color: isDark ? Blue[300] : Blue[600] }]}
                 maxFontSizeMultiplier={1.2}>
-                Мета дня
+                {s.dailyGoalLabel}
               </Text>
               <Text
                 style={[styles.progressLabel, { color: isDark ? Blue[300] : Blue[600] }]}
@@ -389,7 +424,7 @@ export default function HomeScreen() {
             <View
               style={[styles.progressTrack, { backgroundColor: palette.surface }]}
               accessibilityRole="progressbar"
-              accessibilityLabel={`Денний прогрес: ${todayCount} з ${dailyGoal} слів`}>
+              accessibilityLabel={s.progressA11y(todayCount, dailyGoal)}>
               <Animated.View style={[styles.progressFill, progressStyle]} />
             </View>
           </View>
@@ -432,7 +467,7 @@ export default function HomeScreen() {
             /* Empty state */
             <View style={styles.emptyState}>
               <MaterialIcons name="search-off" size={48} color={palette.mutedText} />
-              <Text style={[styles.emptyText, { color: palette.mutedText }]}>Слів не знайдено</Text>
+              <Text style={[styles.emptyText, { color: palette.mutedText }]}>{s.noWords}</Text>
             </View>
           ) : (
             <>
@@ -446,8 +481,14 @@ export default function HomeScreen() {
                   },
                   pressed && { opacity: 0.85 },
                 ]}
-                onPress={() => speak(currentWord.en)}
-                accessibilityLabel={`Вимовити слово ${currentWord.en}`}
+                onPress={() =>
+                  quizDirection === 'reverse'
+                    ? speak(currentWord.ua, 'uk-UA')
+                    : speak(currentWord.target, ttsLang(targetLanguage))
+                }
+                accessibilityLabel={s.pronounceA11y(
+                  quizDirection === 'reverse' ? currentWord.ua : currentWord.target,
+                )}
                 accessibilityRole="button">
                 {/* Green flash overlay on correct answer */}
                 <Animated.View
@@ -462,9 +503,9 @@ export default function HomeScreen() {
                     style={styles.wordText}
                     adjustsFontSizeToFit
                     numberOfLines={1}>
-                    {quizDirection === 'en-ua' ? currentWord.en : currentWord.ua}
+                    {quizDirection === 'forward' ? currentWord.target : currentWord.ua}
                   </ThemedText>
-                  {quizDirection === 'en-ua' && (
+                  {quizDirection === 'forward' && (
                     <Text
                       style={[styles.transcriptionText, { color: palette.mutedText }]}
                       maxFontSizeMultiplier={1.2}>
@@ -478,14 +519,6 @@ export default function HomeScreen() {
                   </Text>
                 </Animated.View>
 
-                {hint !== null && (
-                  <Text
-                    style={[styles.hintText, { color: isDark ? Blue[300] : Blue[600] }]}
-                    maxFontSizeMultiplier={1.2}>
-                    Підказка: {hint}
-                  </Text>
-                )}
-
                 {/* Sound toggle — top-right corner */}
                 <Pressable
                   style={({ pressed }) => [
@@ -495,7 +528,7 @@ export default function HomeScreen() {
                   ]}
                   onPress={toggleSound}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  accessibilityLabel={soundEnabled ? 'Вимкнути звук' : 'Увімкнути звук'}
+                  accessibilityLabel={soundEnabled ? s.soundOff : s.soundOn}
                   accessibilityRole="button"
                   accessibilityState={{ checked: soundEnabled }}>
                   <MaterialIcons
@@ -506,7 +539,7 @@ export default function HomeScreen() {
                 </Pressable>
 
                 {/* Hint button — bottom-left */}
-                {hint === null && selected === null && (
+                {hintedOutOptions.length === 0 && selected === null && (
                   <Pressable
                     style={({ pressed }) => [
                       styles.cardCornerBtn,
@@ -515,7 +548,7 @@ export default function HomeScreen() {
                     ]}
                     onPress={revealHint}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    accessibilityLabel="Показати підказку"
+                    accessibilityLabel={s.showHint}
                     accessibilityRole="button">
                     <MaterialIcons
                       name="lightbulb"
@@ -535,7 +568,7 @@ export default function HomeScreen() {
                     ]}
                     onPress={skipWord}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    accessibilityLabel="Пропустити слово"
+                    accessibilityLabel={s.skipWord}
                     accessibilityRole="button">
                     <MaterialIcons
                       name="arrow-forward"
@@ -556,10 +589,10 @@ export default function HomeScreen() {
                       pressed && { opacity: 0.85 },
                     ]}
                     onPress={nextWord}
-                    accessibilityLabel="Наступне слово"
+                    accessibilityLabel={s.nextWord}
                     accessibilityRole="button">
                     <Text style={styles.nextBtnText} maxFontSizeMultiplier={1.2}>
-                      Далі →
+                      {s.nextWordBtn}
                     </Text>
                   </Pressable>
                 </View>

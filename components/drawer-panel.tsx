@@ -21,9 +21,10 @@ import {
   SWIPE_THRESHOLD,
 } from '@/constants/ui';
 import { Blue, Colors } from '@/constants/theme';
-import type { WordCategory } from '@/constants/words';
+import type { WordCategory, TargetLanguage } from '@/constants/words';
 import { useAppTheme } from '@/contexts/theme-context';
 import { useStatsContext } from '@/contexts/stats-context';
+import { useLanguage } from '@/contexts/language-context';
 import type { ReminderDays } from '@/hooks/use-reminder-settings';
 import type { QuizDirection } from '@/hooks/use-quiz';
 
@@ -44,6 +45,8 @@ interface DrawerPanelProps {
   onOptionsCountChange: (val: 4 | 6 | 8) => void;
   quizDirection: QuizDirection;
   onQuizDirectionChange: (val: QuizDirection) => void;
+  targetLanguage: TargetLanguage;
+  onTargetLanguageChange: (val: TargetLanguage) => void;
   reminderEnabled: boolean;
   reminderTime: string;
   reminderDays: ReminderDays;
@@ -66,6 +69,8 @@ export function DrawerPanel({
   onOptionsCountChange,
   quizDirection,
   onQuizDirectionChange,
+  targetLanguage,
+  onTargetLanguageChange,
   reminderEnabled,
   reminderTime,
   reminderDays,
@@ -79,6 +84,7 @@ export function DrawerPanel({
   const insets = useSafeAreaInsets();
   const { width: screenWidth } = useWindowDimensions();
   const router = useRouter();
+  const { strings: s } = useLanguage();
 
   const { totalAnswered, totalWrong, streak, bestStreak, accuracy } = useStatsContext();
 
@@ -120,7 +126,7 @@ export function DrawerPanel({
         <Pressable
           style={StyleSheet.absoluteFill}
           onPress={onClose}
-          accessibilityLabel="Закрити меню"
+          accessibilityLabel={s.closeMenu}
         />
       </Animated.View>
 
@@ -148,14 +154,14 @@ export function DrawerPanel({
               <Text
                 style={[styles.panelSubtitle, { color: palette.subtleText }]}
                 maxFontSizeMultiplier={1.2}>
-                Гостьовий режим
+                {s.guestMode}
               </Text>
             </View>
             <Pressable
               style={({ pressed }) => [styles.closeBtn, pressed && { opacity: 0.6 }]}
               onPress={onClose}
               hitSlop={12}
-              accessibilityLabel="Закрити меню"
+              accessibilityLabel={s.closeMenu}
               accessibilityRole="button">
               <MaterialIcons name="close" size={22} color={isDark ? Blue[300] : Blue[600]} />
             </Pressable>
@@ -183,6 +189,8 @@ export function DrawerPanel({
               onOptionsCountChange={onOptionsCountChange}
               quizDirection={quizDirection}
               onQuizDirectionChange={onQuizDirectionChange}
+              targetLanguage={targetLanguage}
+              onTargetLanguageChange={onTargetLanguageChange}
               onClose={onClose}
               onResetQuiz={onResetQuiz}
               reminderEnabled={reminderEnabled}
@@ -208,11 +216,11 @@ export function DrawerPanel({
               }}
               hitSlop={8}
               accessibilityRole="link"
-              accessibilityLabel="Політика конфіденційності">
+              accessibilityLabel={s.privacyPolicy}>
               <Text
                 style={[styles.privacyLink, { color: isDark ? Blue[400] : Blue[600] }]}
                 maxFontSizeMultiplier={1.2}>
-                Політика конфіденційності
+                {s.privacyPolicy}
               </Text>
             </Pressable>
           </View>

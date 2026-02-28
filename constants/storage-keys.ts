@@ -32,4 +32,8 @@ export const STORAGE_KEYS = {
   reminderDays: 'reminderDays',
   /** Array of scheduled notification IDs (JSON). Replaces scheduledNotificationId. */
   scheduledNotificationIds: 'scheduledNotificationIds',
+  /** UI language ('uk' | 'en' | 'es' | 'de'). Detected from system on first launch. */
+  appLanguage: 'appLanguage',
+  /** Language being learned ('en' | 'es' | 'de'). Default: 'en'. */
+  targetLanguage: 'targetLanguage',
 } as const;

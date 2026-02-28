@@ -14,6 +14,7 @@ import { Blue, Colors } from '@/constants/theme';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { AppThemeProvider, useAppTheme } from '@/contexts/theme-context';
 import { StatsProvider } from '@/contexts/stats-context';
+import { LanguageProvider, useLanguage } from '@/contexts/language-context';
 
 // Show notifications as banners when app is in foreground (iOS only — Android always shows them)
 // expo-notifications has no web support — use require() so Metro excludes it from the web bundle
@@ -39,6 +40,7 @@ export const unstable_settings = {
 
 function RootLayoutInner() {
   const { colorScheme, isThemeLoaded } = useAppTheme();
+  const { isLanguageLoaded } = useLanguage();
   const router = useRouter();
   const [isReady, setIsReady] = useState(false);
 
@@ -54,13 +56,13 @@ function RootLayoutInner() {
   }, []);
 
   useEffect(() => {
-    // Wait for both navigation readiness AND theme to load before hiding splash.
-    // This prevents a flicker where the wrong theme briefly appears.
-    if (isReady && isThemeLoaded) {
+    // Wait for navigation readiness, theme AND language to load before hiding splash.
+    // This prevents a flicker where the wrong theme or language briefly appears.
+    if (isReady && isThemeLoaded && isLanguageLoaded) {
       // expo-splash-screen applies a short fade-out automatically
       SplashScreen.hideAsync().catch(() => {});
     }
-  }, [isReady, isThemeLoaded]);
+  }, [isReady, isThemeLoaded, isLanguageLoaded]);
 
   if (!isReady) {
     const bg = colorScheme === 'dark' ? Colors.dark.background : Colors.light.background;
@@ -87,11 +89,13 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={styles.fill}>
       <ErrorBoundary>
-        <AppThemeProvider>
-          <StatsProvider>
-            <RootLayoutInner />
-          </StatsProvider>
-        </AppThemeProvider>
+        <LanguageProvider>
+          <AppThemeProvider>
+            <StatsProvider>
+              <RootLayoutInner />
+            </StatsProvider>
+          </AppThemeProvider>
+        </LanguageProvider>
       </ErrorBoundary>
     </GestureHandlerRootView>
   );

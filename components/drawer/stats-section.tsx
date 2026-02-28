@@ -4,8 +4,8 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 
 import { Blue, Colors } from '@/constants/theme';
 import { useStatsContext } from '@/contexts/stats-context';
+import { useLanguage } from '@/contexts/language-context';
 import { RingProgress } from '@/components/ring-progress';
-import { pluralDays } from '@/utils/pluralize';
 import { sectionStyles } from './shared';
 
 interface StatsSectionProps {
@@ -18,9 +18,6 @@ interface StatsSectionProps {
   streak: number;
   bestStreak: number;
 }
-
-// Short Ukrainian day-of-week labels (Mon = 1 ... Sun = 0)
-const DAY_LABELS = ['Нд', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
 
 function StatCard({
   iconName,
@@ -91,6 +88,7 @@ function MonthlyChart({
   isDark: boolean;
 }) {
   const palette = isDark ? Colors.dark : Colors.light;
+  const { strings: s } = useLanguage();
   const days = getLastNDays(30);
   const today = days[days.length - 1];
   const maxBarHeight = 36;
@@ -104,7 +102,7 @@ function MonthlyChart({
   return (
     <View style={styles.chartWrapper}>
       <Text style={[styles.chartTitle, { color: palette.mutedText }]} maxFontSizeMultiplier={1.2}>
-        Активність за місяць
+        {s.activityChart}
       </Text>
       <ScrollView
         ref={scrollRef}
@@ -149,7 +147,7 @@ function MonthlyChart({
                   },
                 ]}
                 maxFontSizeMultiplier={1.2}>
-                {DAY_LABELS[dayOfWeek]}
+                {s.dayLabels[dayOfWeek]}
               </Text>
             </View>
           );
@@ -171,15 +169,17 @@ export function StatsSection({
 }: StatsSectionProps) {
   const palette = isDark ? Colors.dark : Colors.light;
   const { dailyHistory } = useStatsContext();
+  const { lang, strings: s } = useLanguage();
   const goalReached = dailyGoal > 0 && todayCount >= dailyGoal;
   const progressRatio = dailyGoal > 0 ? Math.min(todayCount / dailyGoal, 1) : 0;
   const progressColor = goalReached ? palette.success : isDark ? Blue[400] : Blue[600];
+  const numLocale = lang === 'uk' ? 'uk-UA' : 'en-US';
 
   return (
     <View style={sectionStyles.section}>
       <View style={styles.sectionLabelRow}>
-        <MaterialIcons name="bar-chart" size={13} color={palette.mutedText} />
-        <Text style={[sectionStyles.sectionLabel, { color: palette.mutedText }]}>СТАТИСТИКА</Text>
+        <MaterialIcons name="bar-chart" size={13} color={isDark ? Blue[400] : Blue[500]} />
+        <Text style={[sectionStyles.sectionLabel, { color: palette.mutedText }]}>{s.stats}</Text>
       </View>
 
       {/* Daily progress — ring + count */}
@@ -199,13 +199,13 @@ export function StatsSection({
                 <Text
                   style={[styles.ringCount, { color: palette.success }]}
                   maxFontSizeMultiplier={1.2}>
-                  Ціль!
+                  {s.goalReached}
                 </Text>
               </View>
               <Text
                 style={[styles.ringLabel, { color: palette.mutedText }]}
                 maxFontSizeMultiplier={1.2}>
-                {todayCount} слів сьогодні
+                {s.wordsToday(todayCount)}
               </Text>
             </>
           ) : (
@@ -218,7 +218,7 @@ export function StatsSection({
               <Text
                 style={[styles.ringLabel, { color: palette.mutedText }]}
                 maxFontSizeMultiplier={1.2}>
-                слів сьогодні
+                {s.wordsTodayLabel}
               </Text>
             </>
           )}
@@ -230,13 +230,21 @@ export function StatsSection({
         <StatCard
           iconName="local-fire-department"
           value={`${streak}`}
-          label={pluralDays(streak)}
-          sublabel={bestStreak > 0 ? `Рекорд: ${bestStreak} дн.` : undefined}
+          label={s.streakDays(streak)}
+          sublabel={bestStreak > 0 ? s.bestStreakLabel(bestStreak) : undefined}
           isDark={isDark}
         />
-        <StatCard value={`${accuracy}%`} label="Точність" sublabel="за весь час" isDark={isDark} />
-        <StatCard value={totalAnswered.toLocaleString('uk-UA')} label="Всього" isDark={isDark} />
-        <StatCard value={totalWrong.toLocaleString('uk-UA')} label="Помилок" isDark={isDark} />
+        <StatCard value={`${accuracy}%`} label={s.accuracy} sublabel={s.allTime} isDark={isDark} />
+        <StatCard
+          value={totalAnswered.toLocaleString(numLocale)}
+          label={s.totalAnswered}
+          isDark={isDark}
+        />
+        <StatCard
+          value={totalWrong.toLocaleString(numLocale)}
+          label={s.totalWrong}
+          isDark={isDark}
+        />
       </View>
 
       {/* 30-day activity chart */}

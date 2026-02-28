@@ -15,9 +15,10 @@ import {
 
 import { STORAGE_KEYS } from '@/constants/storage-keys';
 import { Blue, Colors } from '@/constants/theme';
-import type { WordCategory } from '@/constants/words';
+import type { WordCategory, TargetLanguage } from '@/constants/words';
 import { useStatsContext } from '@/contexts/stats-context';
 import { type ThemeMode, useAppTheme } from '@/contexts/theme-context';
+import { useLanguage, type AppLanguage } from '@/contexts/language-context';
 import type { QuizDirection } from '@/hooks/use-quiz';
 import type { ReminderDays } from '@/hooks/use-reminder-settings';
 
@@ -25,38 +26,30 @@ type Palette = (typeof Colors)['light'] | (typeof Colors)['dark'];
 
 type PendingAction = 'reset' | null;
 
-const DIALOG_CONFIG = {
-  reset: {
-    title: 'Скинути статистику',
-    message: 'Весь прогрес буде видалено. Продовжити?',
-    confirm: 'Скинути',
-  },
-} as const;
-
-const THEME_OPTIONS: { label: string; value: ThemeMode }[] = [
-  { label: 'Системна', value: 'system' },
-  { label: 'Світла', value: 'light' },
-  { label: 'Темна', value: 'dark' },
-];
-
 const GOAL_OPTIONS = [10, 20, 50] as const;
 const OPTIONS_COUNT_OPTIONS = [4, 6, 8] as const;
 
-const QUIZ_DIRECTION_OPTIONS: { label: string; value: QuizDirection }[] = [
-  { label: 'EN → UA', value: 'en-ua' },
-  { label: 'UA → EN', value: 'ua-en' },
-];
-
-// Days of week starting Monday (1=Mon…6=Sat, 0=Sun)
-const DAY_OPTIONS: { label: string; value: number }[] = [
-  { label: 'Пн', value: 1 },
-  { label: 'Вт', value: 2 },
-  { label: 'Ср', value: 3 },
-  { label: 'Чт', value: 4 },
-  { label: 'Пт', value: 5 },
-  { label: 'Сб', value: 6 },
-  { label: 'Нд', value: 0 },
-];
+export interface SettingsSectionProps {
+  isDark: boolean;
+  category: WordCategory | undefined;
+  onCategoryChange: (cat: WordCategory | undefined) => void;
+  autoAdvance: boolean;
+  onAutoAdvanceChange: (val: boolean) => void;
+  optionsCount: 4 | 6 | 8;
+  onOptionsCountChange: (val: 4 | 6 | 8) => void;
+  quizDirection: QuizDirection;
+  onQuizDirectionChange: (val: QuizDirection) => void;
+  targetLanguage: TargetLanguage;
+  onTargetLanguageChange: (val: TargetLanguage) => void;
+  onClose: () => void;
+  onResetQuiz?: () => void;
+  reminderEnabled: boolean;
+  reminderTime: string;
+  reminderDays: ReminderDays;
+  onReminderEnabledChange: (val: boolean) => Promise<void>;
+  onReminderTimeChange: (time: string) => Promise<void>;
+  onReminderDaysChange: (days: ReminderDays) => Promise<void>;
+}
 
 // Time options from 06:00 to 23:30 in 30-minute steps
 const TIME_OPTIONS: { label: string; value: string }[] = [];
@@ -70,34 +63,6 @@ for (let h = 6; h <= 23; h++) {
 // Approximate pill width + gap for scroll-to-active calculation
 const TIME_PILL_WIDTH = 64;
 
-const CATEGORY_OPTIONS: { label: string; value: WordCategory | undefined }[] = [
-  { label: 'Всі', value: undefined },
-  { label: 'Дієслова', value: 'verb' },
-  { label: 'Іменники', value: 'noun' },
-  { label: 'Прикмет.', value: 'adjective' },
-  { label: 'Прислів.', value: 'adverb' },
-];
-
-export interface SettingsSectionProps {
-  isDark: boolean;
-  category: WordCategory | undefined;
-  onCategoryChange: (cat: WordCategory | undefined) => void;
-  autoAdvance: boolean;
-  onAutoAdvanceChange: (val: boolean) => void;
-  optionsCount: 4 | 6 | 8;
-  onOptionsCountChange: (val: 4 | 6 | 8) => void;
-  quizDirection: QuizDirection;
-  onQuizDirectionChange: (val: QuizDirection) => void;
-  onClose: () => void;
-  onResetQuiz?: () => void;
-  reminderEnabled: boolean;
-  reminderTime: string;
-  reminderDays: ReminderDays;
-  onReminderEnabledChange: (val: boolean) => Promise<void>;
-  onReminderTimeChange: (time: string) => Promise<void>;
-  onReminderDaysChange: (days: ReminderDays) => Promise<void>;
-}
-
 export function SettingsSection({
   isDark,
   category,
@@ -108,6 +73,8 @@ export function SettingsSection({
   onOptionsCountChange,
   quizDirection,
   onQuizDirectionChange,
+  targetLanguage,
+  onTargetLanguageChange,
   onClose,
   onResetQuiz,
   reminderEnabled,
@@ -121,6 +88,7 @@ export function SettingsSection({
   const { themeMode, setThemeMode } = useAppTheme();
   const { dailyGoal, streakCorrectOnly, setStreakCorrectOnly, reloadDailyGoal, resetStats } =
     useStatsContext();
+  const { lang, setLang, strings: s } = useLanguage();
   const router = useRouter();
 
   const [openSection, setOpenSection] = useState<string | null>(null);
@@ -138,6 +106,45 @@ export function SettingsSection({
       }
     }
   }, [openSection, reminderEnabled, reminderTime]);
+
+  const THEME_OPTIONS: { label: string; value: ThemeMode }[] = [
+    { label: s.themeSystem, value: 'system' },
+    { label: s.themeLight, value: 'light' },
+    { label: s.themeDark, value: 'dark' },
+  ];
+
+  const LANGUAGE_OPTIONS: { label: string; value: AppLanguage }[] = [
+    { label: s.langUk, value: 'uk' },
+    { label: s.langEn, value: 'en' },
+    { label: s.langEs, value: 'es' },
+    { label: s.langDe, value: 'de' },
+  ];
+
+  const langCode = targetLanguage.toUpperCase();
+  const QUIZ_DIRECTION_OPTIONS: { label: string; value: QuizDirection }[] = [
+    { label: `${langCode} → UA`, value: 'forward' },
+    { label: `UA → ${langCode}`, value: 'reverse' },
+  ];
+
+  const LEARNING_LANG_OPTIONS: { label: string; value: TargetLanguage }[] = [
+    { label: s.langEn, value: 'en' },
+    { label: s.langEs, value: 'es' },
+    { label: s.langDe, value: 'de' },
+  ];
+
+  const CATEGORY_OPTIONS: { label: string; value: WordCategory | undefined }[] = [
+    { label: s.catAll, value: undefined },
+    { label: s.catVerb, value: 'verb' },
+    { label: s.catNoun, value: 'noun' },
+    { label: s.catAdj, value: 'adjective' },
+    { label: s.catAdv, value: 'adverb' },
+  ];
+
+  // Days of week starting Monday (1=Mon…6=Sat, 0=Sun)
+  const DAY_OPTIONS: { label: string; value: number }[] = s.reminderDayLabels.map((label, i) => ({
+    label,
+    value: i === 6 ? 0 : i + 1,
+  }));
 
   const toggleDay = (day: number) => {
     const current = reminderDays.length === 0 ? [0, 1, 2, 3, 4, 5, 6] : reminderDays;
@@ -183,14 +190,14 @@ export function SettingsSection({
       <View style={styles.wrapper}>
         <View style={styles.sectionLabelRow}>
           <MaterialIcons name="settings" size={13} color={isDark ? Blue[400] : Blue[500]} />
-          <Text style={[styles.sectionLabel, { color: palette.mutedText }]}>НАЛАШТУВАННЯ</Text>
+          <Text style={[styles.sectionLabel, { color: palette.mutedText }]}>{s.settings}</Text>
         </View>
 
         {/* ─── Тема ─── */}
         <CollapsibleCard
           id="theme"
           icon="palette"
-          label="Тема"
+          label={s.theme}
           isDark={isDark}
           openSection={openSection}
           onToggle={toggle}
@@ -205,37 +212,34 @@ export function SettingsSection({
                 palette={palette}
                 flex
                 onPress={() => setThemeMode(value)}
-                accessibilityLabel={`Тема: ${label}`}
+                accessibilityLabel={s.themeA11y(label)}
               />
             ))}
           </View>
         </CollapsibleCard>
 
-        {/* ─── Мова ─── */}
+        {/* ─── Мова інтерфейсу ─── */}
         <CollapsibleCard
           id="language"
           icon="language"
-          label="Мова перекладу"
+          label={s.interfaceLanguage}
           isDark={isDark}
           openSection={openSection}
           onToggle={toggle}
           palette={palette}>
-          <View
-            style={[
-              styles.langRow,
-              { backgroundColor: palette.background, borderColor: palette.surfaceBorder },
-            ]}>
-            <Text style={[styles.langText, { color: palette.text }]} maxFontSizeMultiplier={1.2}>
-              🇺🇦 Українська
-            </Text>
-            <MaterialIcons name="check" size={14} color={Blue[500]} />
-          </View>
-          <View style={[styles.addLangBtn, { borderColor: palette.surfaceBorder }]}>
-            <Text
-              style={[styles.addLangText, { color: palette.subtleText }]}
-              maxFontSizeMultiplier={1.2}>
-              + Додати мову (скоро)
-            </Text>
+          <View style={styles.pillRow}>
+            {LANGUAGE_OPTIONS.map(({ label, value }) => (
+              <SelectPill
+                key={value}
+                label={label}
+                active={lang === value}
+                isDark={isDark}
+                palette={palette}
+                flex
+                onPress={() => void setLang(value)}
+                accessibilityLabel={s.langA11y(label)}
+              />
+            ))}
           </View>
         </CollapsibleCard>
 
@@ -243,12 +247,27 @@ export function SettingsSection({
         <CollapsibleCard
           id="quiz"
           icon="quiz"
-          label="Квіз"
+          label={s.quiz}
           isDark={isDark}
           openSection={openSection}
           onToggle={toggle}
           palette={palette}>
-          <RowLabel label="Щоденна ціль" palette={palette} />
+          <RowLabel label={s.learningLanguage} palette={palette} />
+          <View style={styles.pillRow}>
+            {LEARNING_LANG_OPTIONS.map(({ label, value }) => (
+              <SelectPill
+                key={value}
+                label={label}
+                active={targetLanguage === value}
+                isDark={isDark}
+                palette={palette}
+                flex
+                onPress={() => onTargetLanguageChange(value)}
+                accessibilityLabel={s.langA11y(label)}
+              />
+            ))}
+          </View>
+          <RowLabel label={s.dailyGoal} palette={palette} />
           <View style={styles.pillRow}>
             {GOAL_OPTIONS.map((g) => (
               <SelectPill
@@ -259,11 +278,11 @@ export function SettingsSection({
                 palette={palette}
                 flex
                 onPress={() => handleGoalChange(g)}
-                accessibilityLabel={`Ціль ${g} слів на день`}
+                accessibilityLabel={s.goalA11y(g)}
               />
             ))}
           </View>
-          <RowLabel label="Варіантів відповіді" palette={palette} />
+          <RowLabel label={s.answersCount} palette={palette} />
           <View style={styles.pillRow}>
             {OPTIONS_COUNT_OPTIONS.map((n) => (
               <SelectPill
@@ -274,11 +293,11 @@ export function SettingsSection({
                 palette={palette}
                 flex
                 onPress={() => onOptionsCountChange(n)}
-                accessibilityLabel={`${n} варіантів відповіді`}
+                accessibilityLabel={s.optionsA11y(n)}
               />
             ))}
           </View>
-          <RowLabel label="Напрям квізу" palette={palette} />
+          <RowLabel label={s.quizDirection} palette={palette} />
           <View style={styles.pillRow}>
             {QUIZ_DIRECTION_OPTIONS.map(({ label, value }) => (
               <SelectPill
@@ -289,11 +308,11 @@ export function SettingsSection({
                 palette={palette}
                 flex
                 onPress={() => onQuizDirectionChange(value)}
-                accessibilityLabel={`Напрям: ${label}`}
+                accessibilityLabel={s.dirA11y(label)}
               />
             ))}
           </View>
-          <RowLabel label="Категорія слів" palette={palette} />
+          <RowLabel label={s.wordCategory} palette={palette} />
           <View style={[styles.pillRow, styles.pillRowWrap]}>
             {CATEGORY_OPTIONS.map(({ label, value }) => (
               <SelectPill
@@ -304,12 +323,12 @@ export function SettingsSection({
                 palette={palette}
                 flex={false}
                 onPress={() => onCategoryChange(value)}
-                accessibilityLabel={`Категорія: ${label}`}
+                accessibilityLabel={s.catA11y(label)}
               />
             ))}
           </View>
           <SwitchRow
-            label="Автоперехід"
+            label={s.autoAdvance}
             value={autoAdvance}
             onValueChange={onAutoAdvanceChange}
             palette={palette}
@@ -320,13 +339,13 @@ export function SettingsSection({
         <CollapsibleCard
           id="streak"
           icon="local-fire-department"
-          label="Серія"
+          label={s.streak}
           isDark={isDark}
           openSection={openSection}
           onToggle={toggle}
           palette={palette}>
           <SwitchRow
-            label="Тільки правильні"
+            label={s.correctOnly}
             value={streakCorrectOnly}
             onValueChange={setStreakCorrectOnly}
             palette={palette}
@@ -337,20 +356,20 @@ export function SettingsSection({
         <CollapsibleCard
           id="reminders"
           icon="notifications"
-          label="Нагадування"
+          label={s.reminders}
           isDark={isDark}
           openSection={openSection}
           onToggle={toggle}
           palette={palette}>
           <SwitchRow
-            label="Щоденне нагадування"
+            label={s.dailyReminder}
             value={reminderEnabled}
             onValueChange={onReminderEnabledChange}
             palette={palette}
           />
           {reminderEnabled && (
             <>
-              <RowLabel label="Час нагадування" palette={palette} />
+              <RowLabel label={s.reminderTime} palette={palette} />
               <ScrollView
                 ref={timeScrollRef}
                 horizontal
@@ -365,11 +384,11 @@ export function SettingsSection({
                     palette={palette}
                     flex={false}
                     onPress={() => void onReminderTimeChange(value)}
-                    accessibilityLabel={`Час нагадування: ${label}`}
+                    accessibilityLabel={s.reminderTimeA11y(label)}
                   />
                 ))}
               </ScrollView>
-              <RowLabel label="Дні тижня" palette={palette} />
+              <RowLabel label={s.reminderDays} palette={palette} />
               <View style={styles.pillRow}>
                 {DAY_OPTIONS.map(({ label, value }) => (
                   <SelectPill
@@ -380,7 +399,7 @@ export function SettingsSection({
                     palette={palette}
                     flex
                     onPress={() => toggleDay(value)}
-                    accessibilityLabel={`${label}: ${isDayActive(value) ? 'увімкнено' : 'вимкнено'}`}
+                    accessibilityLabel={s.reminderDayA11y(label, isDayActive(value))}
                   />
                 ))}
               </View>
@@ -396,14 +415,14 @@ export function SettingsSection({
             pressed && { opacity: 0.7 },
           ]}
           onPress={handleViewTutorial}
-          accessibilityLabel="Переглянути туторіал"
+          accessibilityLabel={s.viewTutorial}
           accessibilityRole="button">
           <View style={styles.tutorialBtnInner}>
             <MaterialIcons name="menu-book" size={16} color={isDark ? Blue[300] : Blue[600]} />
             <Text
               style={[styles.tutorialBtnText, { color: isDark ? Blue[300] : Blue[600] }]}
               maxFontSizeMultiplier={1.2}>
-              Переглянути туторіал
+              {s.viewTutorial}
             </Text>
           </View>
         </Pressable>
@@ -416,13 +435,13 @@ export function SettingsSection({
             pressed && { opacity: 0.65 },
           ]}
           onPress={handleResetStats}
-          accessibilityLabel="Скинути статистику"
+          accessibilityLabel={s.resetStats}
           accessibilityRole="button">
           <MaterialIcons name="autorenew" size={18} color={palette.danger} />
           <Text
             style={[styles.resetBtnText, { color: palette.danger }]}
             maxFontSizeMultiplier={1.2}>
-            Скинути статистику
+            {s.resetStats}
           </Text>
         </Pressable>
       </View>
@@ -437,18 +456,18 @@ export function SettingsSection({
         <Pressable
           style={styles.modalOverlay}
           onPress={handleCancel}
-          accessibilityLabel="Скасувати">
+          accessibilityLabel={s.resetDialogCancel}>
           <Pressable
             style={[styles.dialogCard, { backgroundColor: palette.background }]}
             onPress={() => {}}
             accessibilityRole="none">
             <Text style={[styles.dialogTitle, { color: palette.text }]} maxFontSizeMultiplier={1.2}>
-              {pendingAction ? DIALOG_CONFIG[pendingAction].title : ''}
+              {s.resetDialogTitle}
             </Text>
             <Text
               style={[styles.dialogMessage, { color: palette.mutedText }]}
               maxFontSizeMultiplier={1.2}>
-              {pendingAction ? DIALOG_CONFIG[pendingAction].message : ''}
+              {s.resetDialogMessage}
             </Text>
             <View style={styles.dialogActions}>
               <Pressable
@@ -462,7 +481,7 @@ export function SettingsSection({
                 <Text
                   style={[styles.dialogBtnText, { color: palette.text }]}
                   maxFontSizeMultiplier={1.2}>
-                  Скасувати
+                  {s.resetDialogCancel}
                 </Text>
               </Pressable>
               <Pressable
@@ -474,7 +493,7 @@ export function SettingsSection({
                 onPress={handleConfirm}
                 accessibilityRole="button">
                 <Text style={[styles.dialogBtnText, { color: '#fff' }]} maxFontSizeMultiplier={1.2}>
-                  {pendingAction ? DIALOG_CONFIG[pendingAction].confirm : ''}
+                  {s.resetDialogConfirm}
                 </Text>
               </Pressable>
             </View>
@@ -700,30 +719,6 @@ const styles = StyleSheet.create({
   switchLabel: {
     fontSize: 13,
     fontWeight: '500',
-  },
-  // Language subsection
-  langRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderWidth: 1.5,
-    borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-  },
-  langText: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  addLangBtn: {
-    borderWidth: 1.5,
-    borderStyle: 'dashed',
-    borderRadius: 10,
-    paddingVertical: 8,
-    alignItems: 'center',
-  },
-  addLangText: {
-    fontSize: 12,
   },
   // Tutorial button
   tutorialBtn: {

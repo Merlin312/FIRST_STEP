@@ -51,7 +51,8 @@
             "backgroundColor": "#000000"
           }
         }
-      ]
+      ],
+      "expo-localization"
     ],
     "extra": {
       "privacyPolicyUrl": "https://YOUR_GITHUB_USERNAME.github.io/first_step/privacy-policy"
