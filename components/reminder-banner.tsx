@@ -1,5 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInDown, FadeOutUp } from 'react-native-reanimated';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 
 import { Blue, Colors } from '@/constants/theme';
 import { getReminderMessage, type ReminderType } from '@/utils/reminder-logic';
@@ -56,9 +57,11 @@ export function ReminderBanner({
       accessibilityRole="alert"
       accessibilityLiveRegion="polite">
       <View style={styles.content}>
-        <Text style={styles.icon} maxFontSizeMultiplier={1.2}>
-          {isMilestone ? '🏆' : isAtRisk ? '🔥' : '📚'}
-        </Text>
+        <MaterialIcons
+          name={isMilestone ? 'emoji-events' : isAtRisk ? 'local-fire-department' : 'menu-book'}
+          size={18}
+          color={accentColor}
+        />
         <Text
           style={[styles.message, { color: palette.text }]}
           maxFontSizeMultiplier={1.2}
@@ -91,11 +94,7 @@ export function ReminderBanner({
           hitSlop={8}
           accessibilityLabel="Закрити нагадування"
           accessibilityRole="button">
-          <Text
-            style={[styles.dismissBtnText, { color: palette.subtleText }]}
-            maxFontSizeMultiplier={1.2}>
-            ✕
-          </Text>
+          <MaterialIcons name="close" size={16} color={palette.subtleText} />
         </Pressable>
       </View>
     </Animated.View>
@@ -119,9 +118,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-  },
-  icon: {
-    fontSize: 18,
   },
   message: {
     flex: 1,
@@ -150,9 +146,5 @@ const styles = StyleSheet.create({
     minHeight: 28,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  dismissBtnText: {
-    fontSize: 14,
-    fontWeight: '600',
   },
 });

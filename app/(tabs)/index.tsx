@@ -464,6 +464,13 @@ export default function HomeScreen() {
                     numberOfLines={1}>
                     {quizDirection === 'en-ua' ? currentWord.en : currentWord.ua}
                   </ThemedText>
+                  {quizDirection === 'en-ua' && (
+                    <Text
+                      style={[styles.transcriptionText, { color: palette.mutedText }]}
+                      maxFontSizeMultiplier={1.2}>
+                      {currentWord.transcription}
+                    </Text>
+                  )}
                   <Text
                     style={[styles.queueLabel, { color: palette.mutedText }]}
                     maxFontSizeMultiplier={1.2}>
@@ -658,6 +665,12 @@ const styles = StyleSheet.create({
     lineHeight: 42,
     letterSpacing: 1,
     ...Platform.select({ ios: { fontFamily: 'ui-rounded' }, default: {} }),
+  },
+  transcriptionText: {
+    fontSize: 15,
+    fontStyle: 'italic',
+    marginTop: 2,
+    letterSpacing: 0.5,
   },
   queueLabel: {
     fontSize: 12,

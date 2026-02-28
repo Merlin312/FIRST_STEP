@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter } from 'expo-router';
-import { type ReactNode, useEffect, useRef, useState } from 'react';
+import { type ComponentProps, type ReactNode, useEffect, useRef, useState } from 'react';
 import {
   Modal,
   Pressable,
@@ -22,18 +23,13 @@ import type { ReminderDays } from '@/hooks/use-reminder-settings';
 
 type Palette = (typeof Colors)['light'] | (typeof Colors)['dark'];
 
-type PendingAction = 'reset' | 'startOver' | null;
+type PendingAction = 'reset' | null;
 
 const DIALOG_CONFIG = {
   reset: {
     title: 'Скинути статистику',
     message: 'Весь прогрес буде видалено. Продовжити?',
     confirm: 'Скинути',
-  },
-  startOver: {
-    title: 'Почати спочатку',
-    message: 'Статистика та налаштування будуть скинуті. Онбординг покажеться знову.',
-    confirm: 'Почати спочатку',
   },
 } as const;
 
@@ -174,41 +170,28 @@ export function SettingsSection({
   };
 
   const handleResetStats = () => setPendingAction('reset');
-  const handleStartOver = () => setPendingAction('startOver');
   const handleCancel = () => setPendingAction(null);
 
   const handleConfirm = async () => {
-    const action = pendingAction;
     setPendingAction(null);
-    if (action === 'reset') {
-      await resetStats();
-      onResetQuiz?.();
-    } else if (action === 'startOver') {
-      await Promise.all([
-        resetStats(),
-        AsyncStorage.removeItem(STORAGE_KEYS.hasSeenOnboarding).catch(() => {}),
-        AsyncStorage.removeItem(STORAGE_KEYS.dailyGoal).catch(() => {}),
-        AsyncStorage.removeItem(STORAGE_KEYS.themeMode).catch(() => {}),
-        AsyncStorage.removeItem(STORAGE_KEYS.wordCategory).catch(() => {}),
-        AsyncStorage.removeItem(STORAGE_KEYS.autoAdvance).catch(() => {}),
-        AsyncStorage.removeItem(STORAGE_KEYS.optionsCount).catch(() => {}),
-        AsyncStorage.removeItem(STORAGE_KEYS.quizDirection).catch(() => {}),
-        AsyncStorage.removeItem(STORAGE_KEYS.reminderDays).catch(() => {}),
-      ]);
-      onClose();
-      router.replace('/onboarding');
-    }
+    await resetStats();
+    onResetQuiz?.();
   };
 
   return (
     <>
       <View style={styles.wrapper}>
-        <Text style={[styles.sectionLabel, { color: palette.mutedText }]}>⚙️ НАЛАШТУВАННЯ</Text>
+        <View style={styles.sectionLabelRow}>
+          <MaterialIcons name="settings" size={13} color={isDark ? Blue[400] : Blue[500]} />
+          <Text style={[styles.sectionLabel, { color: palette.mutedText }]}>НАЛАШТУВАННЯ</Text>
+        </View>
 
         {/* ─── Тема ─── */}
         <CollapsibleCard
           id="theme"
-          label="🎨  Тема"
+          icon="palette"
+          label="Тема"
+          isDark={isDark}
           openSection={openSection}
           onToggle={toggle}
           palette={palette}>
@@ -231,7 +214,9 @@ export function SettingsSection({
         {/* ─── Мова ─── */}
         <CollapsibleCard
           id="language"
-          label="🌐  Мова перекладу"
+          icon="language"
+          label="Мова перекладу"
+          isDark={isDark}
           openSection={openSection}
           onToggle={toggle}
           palette={palette}>
@@ -243,7 +228,7 @@ export function SettingsSection({
             <Text style={[styles.langText, { color: palette.text }]} maxFontSizeMultiplier={1.2}>
               🇺🇦 Українська
             </Text>
-            <Text style={{ color: Blue[500] }}>✓</Text>
+            <MaterialIcons name="check" size={14} color={Blue[500]} />
           </View>
           <View style={[styles.addLangBtn, { borderColor: palette.surfaceBorder }]}>
             <Text
@@ -257,7 +242,9 @@ export function SettingsSection({
         {/* ─── Квіз ─── */}
         <CollapsibleCard
           id="quiz"
-          label="📚  Квіз"
+          icon="quiz"
+          label="Квіз"
+          isDark={isDark}
           openSection={openSection}
           onToggle={toggle}
           palette={palette}>
@@ -332,7 +319,9 @@ export function SettingsSection({
         {/* ─── Серія ─── */}
         <CollapsibleCard
           id="streak"
-          label="🔥  Серія"
+          icon="local-fire-department"
+          label="Серія"
+          isDark={isDark}
           openSection={openSection}
           onToggle={toggle}
           palette={palette}>
@@ -347,7 +336,9 @@ export function SettingsSection({
         {/* ─── Нагадування ─── */}
         <CollapsibleCard
           id="reminders"
-          label="🔔  Нагадування"
+          icon="notifications"
+          label="Нагадування"
+          isDark={isDark}
           openSection={openSection}
           onToggle={toggle}
           palette={palette}>
@@ -407,55 +398,33 @@ export function SettingsSection({
           onPress={handleViewTutorial}
           accessibilityLabel="Переглянути туторіал"
           accessibilityRole="button">
-          <Text
-            style={[styles.tutorialBtnText, { color: isDark ? Blue[300] : Blue[600] }]}
-            maxFontSizeMultiplier={1.2}>
-            📖 Переглянути туторіал
-          </Text>
+          <View style={styles.tutorialBtnInner}>
+            <MaterialIcons name="menu-book" size={16} color={isDark ? Blue[300] : Blue[600]} />
+            <Text
+              style={[styles.tutorialBtnText, { color: isDark ? Blue[300] : Blue[600] }]}
+              maxFontSizeMultiplier={1.2}>
+              Переглянути туторіал
+            </Text>
+          </View>
         </Pressable>
 
-        {/* ─── Небезпечна зона ─── */}
-        <CollapsibleCard
-          id="danger"
-          label="⚠️  Небезпечна зона"
-          openSection={openSection}
-          onToggle={toggle}
-          palette={palette}
-          cardStyle={{
-            backgroundColor: isDark ? 'rgba(239, 68, 68, 0.08)' : 'rgba(239, 68, 68, 0.06)',
-            borderColor: isDark ? 'rgba(239, 68, 68, 0.35)' : 'rgba(239, 68, 68, 0.25)',
-          }}>
-          <Pressable
-            style={({ pressed }) => [
-              styles.dangerBtn,
-              { borderColor: isDark ? 'rgba(239, 68, 68, 0.4)' : 'rgba(239, 68, 68, 0.3)' },
-              pressed && styles.dangerBtnPressed,
-            ]}
-            onPress={handleResetStats}
-            accessibilityLabel="Скинути статистику"
-            accessibilityRole="button">
-            <Text
-              style={[styles.dangerText, { color: palette.danger }]}
-              maxFontSizeMultiplier={1.2}>
-              🗑 Скинути статистику
-            </Text>
-          </Pressable>
-          <Pressable
-            style={({ pressed }) => [
-              styles.dangerBtn,
-              { borderColor: isDark ? 'rgba(239, 68, 68, 0.4)' : 'rgba(239, 68, 68, 0.3)' },
-              pressed && styles.dangerBtnPressed,
-            ]}
-            onPress={handleStartOver}
-            accessibilityLabel="Почати спочатку"
-            accessibilityRole="button">
-            <Text
-              style={[styles.dangerText, { color: palette.danger }]}
-              maxFontSizeMultiplier={1.2}>
-              🔄 Почати спочатку
-            </Text>
-          </Pressable>
-        </CollapsibleCard>
+        {/* ─── Скинути статистику ─── */}
+        <Pressable
+          style={({ pressed }) => [
+            styles.resetBtn,
+            { borderColor: isDark ? 'rgba(239, 68, 68, 0.4)' : 'rgba(239, 68, 68, 0.3)' },
+            pressed && { opacity: 0.65 },
+          ]}
+          onPress={handleResetStats}
+          accessibilityLabel="Скинути статистику"
+          accessibilityRole="button">
+          <MaterialIcons name="autorenew" size={18} color={palette.danger} />
+          <Text
+            style={[styles.resetBtnText, { color: palette.danger }]}
+            maxFontSizeMultiplier={1.2}>
+            Скинути статистику
+          </Text>
+        </Pressable>
       </View>
 
       {/* Кастомний діалог підтвердження через Modal */}
@@ -520,7 +489,9 @@ export function SettingsSection({
 
 function CollapsibleCard({
   id,
+  icon,
   label,
+  isDark,
   openSection,
   onToggle,
   palette,
@@ -528,7 +499,9 @@ function CollapsibleCard({
   children,
 }: {
   id: string;
+  icon?: ComponentProps<typeof MaterialIcons>['name'];
   label: string;
+  isDark: boolean;
   openSection: string | null;
   onToggle: (key: string) => void;
   palette: Palette;
@@ -548,10 +521,17 @@ function CollapsibleCard({
         onPress={() => onToggle(id)}
         accessibilityRole="button"
         accessibilityState={{ expanded: isOpen }}>
-        <Text style={[styles.subLabel, { color: palette.mutedText }]} maxFontSizeMultiplier={1.2}>
-          {label}
-        </Text>
-        <Text style={[styles.chevron, { color: palette.subtleText }]}>{isOpen ? '▲' : '▼'}</Text>
+        <View style={styles.cardHeaderLeft}>
+          {icon && <MaterialIcons name={icon} size={15} color={isDark ? Blue[300] : Blue[500]} />}
+          <Text style={[styles.subLabel, { color: palette.mutedText }]} maxFontSizeMultiplier={1.2}>
+            {label}
+          </Text>
+        </View>
+        <MaterialIcons
+          name={isOpen ? 'expand-less' : 'expand-more'}
+          size={18}
+          color={palette.subtleText}
+        />
       </Pressable>
       {isOpen && (
         <View style={[styles.cardContent, { borderTopColor: palette.surfaceBorder }]}>
@@ -646,13 +626,18 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     gap: 8,
   },
+  sectionLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginBottom: 2,
+    paddingHorizontal: 2,
+  },
   sectionLabel: {
     fontSize: 11,
     fontWeight: '700',
     letterSpacing: 0.8,
     textTransform: 'uppercase',
-    marginBottom: 2,
-    paddingHorizontal: 2,
   },
   groupCard: {
     borderWidth: 1,
@@ -672,14 +657,17 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     gap: 8,
   },
+  cardHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flex: 1,
+  },
   subLabel: {
     fontSize: 11,
     fontWeight: '700',
     letterSpacing: 0.8,
     textTransform: 'uppercase',
-  },
-  chevron: {
-    fontSize: 10,
   },
   rowLabelText: {
     fontSize: 12,
@@ -745,22 +733,27 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     alignItems: 'center',
   },
+  tutorialBtnInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   tutorialBtnText: {
     fontSize: 14,
     fontWeight: '500',
   },
-  // Danger zone buttons
-  dangerBtn: {
+  // Reset stats button
+  resetBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
     borderWidth: 1,
     borderRadius: 10,
     paddingVertical: 12,
     paddingHorizontal: 16,
-    alignItems: 'center',
   },
-  dangerBtnPressed: {
-    opacity: 0.65,
-  },
-  dangerText: {
+  resetBtnText: {
     fontSize: 14,
     fontWeight: '500',
   },

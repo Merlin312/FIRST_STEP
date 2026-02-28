@@ -1,5 +1,6 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, type ComponentProps } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 
 import { Blue, Colors } from '@/constants/theme';
 import { useStatsContext } from '@/contexts/stats-context';
@@ -22,30 +23,36 @@ interface StatsSectionProps {
 const DAY_LABELS = ['Нд', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
 
 function StatCard({
+  iconName,
   value,
   label,
   sublabel,
   isDark,
 }: {
+  iconName?: ComponentProps<typeof MaterialIcons>['name'];
   value: string;
   label: string;
   sublabel?: string;
   isDark: boolean;
 }) {
   const palette = isDark ? Colors.dark : Colors.light;
+  const valueColor = isDark ? Blue[200] : Blue[800];
   return (
     <View
       style={[
         styles.statCard,
         { backgroundColor: palette.surface, borderColor: palette.surfaceBorder },
       ]}>
-      <Text
-        style={[styles.statCardValue, { color: isDark ? Blue[200] : Blue[800] }]}
-        maxFontSizeMultiplier={1.2}
-        numberOfLines={1}
-        adjustsFontSizeToFit>
-        {value}
-      </Text>
+      <View style={styles.statCardValueRow}>
+        {iconName && <MaterialIcons name={iconName} size={18} color={valueColor} />}
+        <Text
+          style={[styles.statCardValue, { color: valueColor }]}
+          maxFontSizeMultiplier={1.2}
+          numberOfLines={1}
+          adjustsFontSizeToFit>
+          {value}
+        </Text>
+      </View>
       <Text
         style={[styles.statCardLabel, { color: palette.mutedText }]}
         maxFontSizeMultiplier={1.2}>
@@ -170,7 +177,10 @@ export function StatsSection({
 
   return (
     <View style={sectionStyles.section}>
-      <Text style={[sectionStyles.sectionLabel, { color: palette.mutedText }]}>📊 СТАТИСТИКА</Text>
+      <View style={styles.sectionLabelRow}>
+        <MaterialIcons name="bar-chart" size={13} color={palette.mutedText} />
+        <Text style={[sectionStyles.sectionLabel, { color: palette.mutedText }]}>СТАТИСТИКА</Text>
+      </View>
 
       {/* Daily progress — ring + count */}
       <View style={styles.ringRow}>
@@ -184,11 +194,14 @@ export function StatsSection({
         <View style={styles.ringInfo}>
           {goalReached ? (
             <>
-              <Text
-                style={[styles.ringCount, { color: palette.success }]}
-                maxFontSizeMultiplier={1.2}>
-                ✓ Ціль!
-              </Text>
+              <View style={styles.goalReachedRow}>
+                <MaterialIcons name="check" size={20} color={palette.success} />
+                <Text
+                  style={[styles.ringCount, { color: palette.success }]}
+                  maxFontSizeMultiplier={1.2}>
+                  Ціль!
+                </Text>
+              </View>
               <Text
                 style={[styles.ringLabel, { color: palette.mutedText }]}
                 maxFontSizeMultiplier={1.2}>
@@ -215,7 +228,8 @@ export function StatsSection({
       {/* 2×2 stat cards */}
       <View style={styles.grid}>
         <StatCard
-          value={`🔥 ${streak}`}
+          iconName="local-fire-department"
+          value={`${streak}`}
           label={pluralDays(streak)}
           sublabel={bestStreak > 0 ? `Рекорд: ${bestStreak} дн.` : undefined}
           isDark={isDark}
@@ -232,6 +246,22 @@ export function StatsSection({
 }
 
 const styles = StyleSheet.create({
+  sectionLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginBottom: 2,
+  },
+  goalReachedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  statCardValueRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
   ringRow: {
     flexDirection: 'row',
     alignItems: 'center',

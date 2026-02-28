@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -58,7 +59,7 @@ export function CelebrationModal({ visible, goal, onDismiss }: CelebrationModalP
         accessibilityRole="button">
         <Pressable onPress={() => {}} accessibilityRole="none">
           <Animated.View style={[styles.card, { backgroundColor: palette.background }, cardStyle]}>
-            <Text style={styles.emoji}>🎉</Text>
+            <MaterialIcons name="celebration" size={52} color={isDark ? Blue[300] : Blue[600]} />
             <Text style={[styles.title, { color: palette.text }]} maxFontSizeMultiplier={1.2}>
               Мету досягнуто!
             </Text>
@@ -72,7 +73,11 @@ export function CelebrationModal({ visible, goal, onDismiss }: CelebrationModalP
               . Чудова робота!
             </Text>
             <View style={styles.statsRow}>
-              <Text style={styles.statsEmoji}>🔥</Text>
+              <MaterialIcons
+                name="local-fire-department"
+                size={16}
+                color={isDark ? Blue[300] : Blue[500]}
+              />
               <Text
                 style={[styles.statsText, { color: palette.mutedText }]}
                 maxFontSizeMultiplier={1.2}>
@@ -119,10 +124,6 @@ const styles = StyleSheet.create({
     elevation: 30,
     width: 300,
   },
-  emoji: {
-    fontSize: 52,
-    lineHeight: 64,
-  },
   title: {
     fontSize: 22,
     fontWeight: '700',
@@ -137,9 +138,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-  },
-  statsEmoji: {
-    fontSize: 16,
   },
   statsText: {
     fontSize: 13,
