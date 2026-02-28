@@ -8,7 +8,7 @@ export interface Word {
 }
 
 /** The learning language for a given word set. */
-export type TargetLanguage = 'en' | 'es' | 'de';
+export type TargetLanguage = 'en' | 'es' | 'de' | 'ua';
 
 function tag(
   words: { target: string; ua: string; transcription: string }[],

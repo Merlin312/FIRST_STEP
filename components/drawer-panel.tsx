@@ -25,6 +25,7 @@ import type { WordCategory, TargetLanguage } from '@/constants/words';
 import { useAppTheme } from '@/contexts/theme-context';
 import { useStatsContext } from '@/contexts/stats-context';
 import { useLanguage } from '@/contexts/language-context';
+import { useAuthContext } from '@/contexts/auth-context';
 import type { ReminderDays } from '@/hooks/use-reminder-settings';
 import type { QuizDirection } from '@/hooks/use-quiz';
 
@@ -85,6 +86,7 @@ export function DrawerPanel({
   const { width: screenWidth } = useWindowDimensions();
   const router = useRouter();
   const { strings: s } = useLanguage();
+  const { user, isGuest, signInWithGoogle, signInWithApple, signOut } = useAuthContext();
 
   const { totalAnswered, totalWrong, streak, bestStreak, accuracy } = useStatsContext();
 
@@ -168,6 +170,95 @@ export function DrawerPanel({
           </View>
 
           <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
+            {/* Auth section */}
+            <Text
+              style={[styles.sectionLabel, { color: palette.subtleText }]}
+              maxFontSizeMultiplier={1.2}>
+              {s.accountSection}
+            </Text>
+            {isGuest ? (
+              <View style={styles.authCard}>
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.authBtn,
+                    styles.authBtnPrimary,
+                    { backgroundColor: isDark ? Blue[700] : Blue[600] },
+                    pressed && { opacity: 0.75 },
+                  ]}
+                  onPress={signInWithGoogle}
+                  accessibilityRole="button">
+                  <MaterialIcons name="login" size={16} color="#fff" />
+                  <Text style={styles.authBtnPrimaryText} maxFontSizeMultiplier={1.2}>
+                    {s.signIn}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.authBtn,
+                    styles.authBtnSecondary,
+                    { borderColor: isDark ? Blue[500] : Blue[400] },
+                    pressed && { opacity: 0.75 },
+                  ]}
+                  onPress={signInWithApple}
+                  accessibilityRole="button">
+                  <Text
+                    style={[styles.authBtnSecondaryText, { color: isDark ? Blue[300] : Blue[700] }]}
+                    maxFontSizeMultiplier={1.2}>
+                    {s.signUp}
+                  </Text>
+                </Pressable>
+                <Text
+                  style={[styles.authHint, { color: palette.subtleText }]}
+                  maxFontSizeMultiplier={1.2}>
+                  {s.syncProgress}
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.authCard}>
+                <View style={styles.userRow}>
+                  <View
+                    style={[styles.avatar, { backgroundColor: isDark ? Blue[700] : Blue[100] }]}>
+                    <Text
+                      style={[styles.avatarInitial, { color: isDark ? Blue[200] : Blue[700] }]}
+                      maxFontSizeMultiplier={1}>
+                      {(user?.displayName ?? user?.email ?? '?')[0].toUpperCase()}
+                    </Text>
+                  </View>
+                  <View style={styles.userInfo}>
+                    <Text
+                      style={[styles.userName, { color: palette.text }]}
+                      maxFontSizeMultiplier={1.2}
+                      numberOfLines={1}>
+                      {user?.displayName ?? user?.email ?? ''}
+                    </Text>
+                    {user?.email && user?.displayName ? (
+                      <Text
+                        style={[styles.userEmail, { color: palette.subtleText }]}
+                        maxFontSizeMultiplier={1.2}
+                        numberOfLines={1}>
+                        {user.email}
+                      </Text>
+                    ) : null}
+                  </View>
+                </View>
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.authBtn,
+                    styles.authBtnSecondary,
+                    { borderColor: isDark ? Blue[500] : Blue[400] },
+                    pressed && { opacity: 0.75 },
+                  ]}
+                  onPress={signOut}
+                  accessibilityRole="button">
+                  <Text
+                    style={[styles.authBtnSecondaryText, { color: isDark ? Blue[300] : Blue[700] }]}
+                    maxFontSizeMultiplier={1.2}>
+                    {s.signOut}
+                  </Text>
+                </Pressable>
+              </View>
+            )}
+            <Divider palette={palette} />
             <StatsSection
               isDark={isDark}
               todayCount={todayCount}
@@ -291,5 +382,75 @@ const styles = StyleSheet.create({
   privacyLink: {
     fontSize: 11,
     textDecorationLine: 'underline',
+  },
+  sectionLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 0.8,
+    marginHorizontal: 20,
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  authCard: {
+    marginHorizontal: 20,
+    gap: 8,
+    marginBottom: 4,
+  },
+  authBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 10,
+    paddingVertical: 10,
+    gap: 6,
+  },
+  authBtnPrimary: {
+    // backgroundColor set inline (theme-dependent)
+  },
+  authBtnPrimaryText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  authBtnSecondary: {
+    borderWidth: 1,
+    // borderColor set inline (theme-dependent)
+  },
+  authBtnSecondaryText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  authHint: {
+    fontSize: 11,
+    textAlign: 'center',
+    marginTop: 2,
+  },
+  userRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 4,
+  },
+  avatar: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarInitial: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  userInfo: {
+    flex: 1,
+  },
+  userName: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  userEmail: {
+    fontSize: 11,
+    marginTop: 1,
   },
 });

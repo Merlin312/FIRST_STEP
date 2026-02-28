@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import Constants from 'expo-constants';
+import { Audio } from 'expo-av';
 import * as SplashScreen from 'expo-splash-screen';
 import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -15,6 +16,7 @@ import { ErrorBoundary } from '@/components/error-boundary';
 import { AppThemeProvider, useAppTheme } from '@/contexts/theme-context';
 import { StatsProvider } from '@/contexts/stats-context';
 import { LanguageProvider, useLanguage } from '@/contexts/language-context';
+import { AuthProvider } from '@/contexts/auth-context';
 
 // Show notifications as banners when app is in foreground (iOS only — Android always shows them)
 // expo-notifications has no web support — use require() so Metro excludes it from the web bundle
@@ -33,6 +35,13 @@ if (Platform.OS !== 'web' && Constants.executionEnvironment !== 'storeClient') {
 
 // Keep splash screen visible until the app is ready to show content
 SplashScreen.preventAutoHideAsync();
+
+// Configure audio session: play even when the device is in silent/ringer-off mode
+Audio.setAudioModeAsync({
+  playsInSilentModeIOS: true,
+  staysActiveInBackground: false,
+  allowsRecordingIOS: false,
+}).catch(() => {});
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -92,9 +101,11 @@ export default function RootLayout() {
       <ErrorBoundary>
         <LanguageProvider>
           <AppThemeProvider>
-            <StatsProvider>
-              <RootLayoutInner />
-            </StatsProvider>
+            <AuthProvider>
+              <StatsProvider>
+                <RootLayoutInner />
+              </StatsProvider>
+            </AuthProvider>
           </AppThemeProvider>
         </LanguageProvider>
       </ErrorBoundary>

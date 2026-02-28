@@ -2,6 +2,15 @@ import type { AppStrings } from './uk';
 
 /** All UI strings in German. */
 export const de: AppStrings = {
+  // ─── Auth ───────────────────────────────────────────────────────────────────
+  accountSection: 'KONTO',
+  signIn: 'Anmelden',
+  signUp: 'Registrieren',
+  signOut: 'Abmelden',
+  continueWithGoogle: 'Weiter mit Google',
+  comingSoon: 'Bald verfügbar',
+  syncProgress: 'Synchronisation',
+
   // ─── DrawerPanel ────────────────────────────────────────────────────────────
   guestMode: 'Gastmodus',
   closeMenu: 'Menü schließen',

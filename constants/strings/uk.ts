@@ -1,5 +1,14 @@
 /** Shape of all UI string bundles. Add keys here when adding new UI strings. */
 export interface AppStrings {
+  // ─── Auth ───────────────────────────────────────────────────────────────────
+  accountSection: string;
+  signIn: string;
+  signUp: string;
+  signOut: string;
+  continueWithGoogle: string;
+  comingSoon: string;
+  syncProgress: string;
+
   // ─── DrawerPanel ────────────────────────────────────────────────────────────
   guestMode: string;
   closeMenu: string;
@@ -97,6 +106,15 @@ export interface AppStrings {
 
 /** All UI strings in Ukrainian. */
 export const uk: AppStrings = {
+  // ─── Auth ───────────────────────────────────────────────────────────────────
+  accountSection: 'АКАУНТ',
+  signIn: 'Увійти',
+  signUp: 'Реєстрація',
+  signOut: 'Вийти',
+  continueWithGoogle: 'Продовжити з Google',
+  comingSoon: 'Скоро буде',
+  syncProgress: 'Синхронізація прогресу',
+
   // ─── DrawerPanel ────────────────────────────────────────────────────────────
   guestMode: 'Гостьовий режим',
   closeMenu: 'Закрити меню',

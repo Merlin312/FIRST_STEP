@@ -38,4 +38,8 @@ export const STORAGE_KEYS = {
   targetLanguage: 'targetLanguage',
   /** Words the user has marked as already known (JSON array of "lang:target" strings). */
   knownWords: 'knownWords',
+  /** ID of the signed-in user. Absent = guest. */
+  userId: 'userId',
+  /** Cached user profile JSON (AuthUser). Updated on sign-in. */
+  userProfile: 'userProfile',
 } as const;
