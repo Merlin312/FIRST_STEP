@@ -9,6 +9,7 @@ import {
 } from '@/constants/words';
 import { WORDS_ES, WORDS_ES_BY_CATEGORY } from '@/constants/words-es';
 import { WORDS_DE, WORDS_DE_BY_CATEGORY } from '@/constants/words-de';
+import { WORDS_UA, WORDS_UA_BY_CATEGORY } from '@/constants/words-ua';
 
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
@@ -43,6 +44,8 @@ function getWordSource(lang: TargetLanguage): {
       return { all: WORDS_ES, byCategory: WORDS_ES_BY_CATEGORY };
     case 'de':
       return { all: WORDS_DE, byCategory: WORDS_DE_BY_CATEGORY };
+    case 'ua':
+      return { all: WORDS_UA, byCategory: WORDS_UA_BY_CATEGORY };
     default:
       return { all: WORDS, byCategory: WORDS_BY_CATEGORY };
   }

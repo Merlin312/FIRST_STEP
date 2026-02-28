@@ -29,14 +29,18 @@ WORD_FILES = [
 AUDIO_DIR = 'assets/audio/uk'
 REGISTRY_FILE = 'constants/audio-uk.ts'
 
-# Matches:  ua: 'бути'  or  ua: "бути"
-UA_PATTERN = re.compile(r"""ua:\s*['"]([^'"]+)['"]""")
+# Matches:  ua: 'бути'  OR  ua: "пам'ятати"
+# Two separate alternatives so each quote type acts as its own delimiter.
+# Group 1: single-quoted value (no apostrophes allowed inside).
+# Group 2: double-quoted value (apostrophes allowed inside).
+UA_PATTERN = re.compile(r"""ua:\s*(?:'([^']*)'|"([^"]*)")""")
 
 
 def extract_ua_values(filepath: str) -> list:
     with open(filepath, encoding='utf-8') as f:
         content = f.read()
-    return UA_PATTERN.findall(content)
+    # findall returns (g1, g2) tuples; one group is always ''
+    return [g1 or g2 for g1, g2 in UA_PATTERN.findall(content)]
 
 
 def main():

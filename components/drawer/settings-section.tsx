@@ -16,6 +16,7 @@ import {
 import { STORAGE_KEYS } from '@/constants/storage-keys';
 import { Blue, Colors } from '@/constants/theme';
 import type { WordCategory, TargetLanguage } from '@/constants/words';
+import { LanguagePicker } from '@/components/language-picker';
 import { useStatsContext } from '@/contexts/stats-context';
 import { type ThemeMode, useAppTheme } from '@/contexts/theme-context';
 import { useLanguage, type AppLanguage } from '@/contexts/language-context';
@@ -120,17 +121,18 @@ export function SettingsSection({
     { label: s.langDe, value: 'de' },
   ];
 
-  const langCode = targetLanguage.toUpperCase();
-  const QUIZ_DIRECTION_OPTIONS: { label: string; value: QuizDirection }[] = [
-    { label: `${langCode} → UA`, value: 'forward' },
-    { label: `UA → ${langCode}`, value: 'reverse' },
-  ];
-
-  const LEARNING_LANG_OPTIONS: { label: string; value: TargetLanguage }[] = [
-    { label: s.langEn, value: 'en' },
-    { label: s.langEs, value: 'es' },
-    { label: s.langDe, value: 'de' },
-  ];
+  // For Ukrainian word sets: target=Ukrainian, ua=English → forward = UA→EN, reverse = EN→UA
+  // For other sets: target=EN/ES/DE, ua=Ukrainian → forward = LANG→UA, reverse = UA→LANG
+  const QUIZ_DIRECTION_OPTIONS: { label: string; value: QuizDirection }[] =
+    targetLanguage === 'ua'
+      ? [
+          { label: 'UA → EN', value: 'forward' },
+          { label: 'EN → UA', value: 'reverse' },
+        ]
+      : [
+          { label: `${targetLanguage.toUpperCase()} → UA`, value: 'forward' },
+          { label: `UA → ${targetLanguage.toUpperCase()}`, value: 'reverse' },
+        ];
 
   const CATEGORY_OPTIONS: { label: string; value: WordCategory | undefined }[] = [
     { label: s.catAll, value: undefined },
@@ -258,20 +260,11 @@ export function SettingsSection({
           onToggle={toggle}
           palette={palette}>
           <RowLabel label={s.learningLanguage} palette={palette} />
-          <View style={styles.pillRow}>
-            {LEARNING_LANG_OPTIONS.map(({ label, value }) => (
-              <SelectPill
-                key={value}
-                label={label}
-                active={targetLanguage === value}
-                isDark={isDark}
-                palette={palette}
-                flex
-                onPress={() => onTargetLanguageChange(value)}
-                accessibilityLabel={s.langA11y(label)}
-              />
-            ))}
-          </View>
+          <LanguagePicker
+            selected={targetLanguage}
+            onSelect={onTargetLanguageChange}
+            style={styles.langPickerInCard}
+          />
           <RowLabel label={s.dailyGoal} palette={palette} />
           <View style={styles.pillRow}>
             {GOAL_OPTIONS.map((g) => (
@@ -716,6 +709,9 @@ const styles = StyleSheet.create({
   rowLabelText: {
     fontSize: 12,
     fontWeight: '500',
+  },
+  langPickerInCard: {
+    marginBottom: 4,
   },
   pillRow: {
     flexDirection: 'row',

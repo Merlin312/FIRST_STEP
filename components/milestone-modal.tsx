@@ -10,20 +10,26 @@ import Animated, {
 
 import { Blue, Colors } from '@/constants/theme';
 import { useAppTheme } from '@/contexts/theme-context';
-import { useStatsContext } from '@/contexts/stats-context';
-import { pluralDays } from '@/utils/pluralize';
 
-interface CelebrationModalProps {
+const MILESTONE_TEXTS: Record<number, string> = {
+  10: 'Чудовий початок! Перший крок зроблено.',
+  50: '50 слів — це вже помітний прогрес!',
+  100: '100 слів. Ти покриваєш більшість текстів!',
+  200: '200 слів — справжнє досягнення!',
+  300: '300 слів. Більшість людей ніколи не доходять так далеко.',
+  500: '500 слів! Словниковий запас для реального спілкування.',
+};
+
+interface MilestoneModalProps {
   visible: boolean;
-  goal: number;
+  milestone: number | null;
   onDismiss: () => void;
 }
 
-export function CelebrationModal({ visible, goal, onDismiss }: CelebrationModalProps) {
+export function MilestoneModal({ visible, milestone, onDismiss }: MilestoneModalProps) {
   const { colorScheme } = useAppTheme();
   const isDark = colorScheme === 'dark';
   const palette = isDark ? Colors.dark : Colors.light;
-  const { streak } = useStatsContext();
 
   const scale = useSharedValue(0.8);
   const opacity = useSharedValue(0);
@@ -33,7 +39,6 @@ export function CelebrationModal({ visible, goal, onDismiss }: CelebrationModalP
       scale.value = withSpring(1, { damping: 14, stiffness: 220 });
       opacity.value = withSpring(1, { damping: 20, stiffness: 200 });
     } else {
-      // Instant reset so the animation starts fresh on next open
       scale.value = withTiming(0.8, { duration: 0 });
       opacity.value = withTiming(0, { duration: 0 });
     }
@@ -44,6 +49,10 @@ export function CelebrationModal({ visible, goal, onDismiss }: CelebrationModalP
     transform: [{ scale: scale.value }],
     opacity: opacity.value,
   }));
+
+  if (!milestone) return null;
+
+  const subtitle = MILESTONE_TEXTS[milestone] ?? `${milestone} слів вивчено!`;
 
   return (
     <Modal
@@ -59,36 +68,29 @@ export function CelebrationModal({ visible, goal, onDismiss }: CelebrationModalP
         accessibilityRole="button">
         <Pressable onPress={() => {}} accessibilityRole="none">
           <Animated.View style={[styles.card, { backgroundColor: palette.background }, cardStyle]}>
-            <MaterialIcons name="celebration" size={52} color={isDark ? Blue[300] : Blue[600]} />
+            <Text style={styles.trophy} accessibilityLabel="Трофей">
+              🏆
+            </Text>
             <Text style={[styles.title, { color: palette.text }]} maxFontSizeMultiplier={1.2}>
-              Мету досягнуто!
+              Ти вивчив вже {milestone} слів!
             </Text>
             <Text
               style={[styles.subtitle, { color: palette.mutedText }]}
               maxFontSizeMultiplier={1.2}>
-              Сьогодні ви вивчили{'\n'}
-              <Text style={{ fontWeight: '700', color: isDark ? Blue[300] : Blue[700] }}>
-                {goal} слів
-              </Text>
-              . Чудова робота!
+              {subtitle}
             </Text>
-            <View style={styles.statsRow}>
+            <View style={styles.badge}>
               <MaterialIcons
                 name="local-fire-department"
                 size={16}
                 color={isDark ? Blue[300] : Blue[500]}
               />
               <Text
-                style={[styles.statsText, { color: palette.mutedText }]}
+                style={[styles.badgeText, { color: isDark ? Blue[300] : Blue[600] }]}
                 maxFontSizeMultiplier={1.2}>
-                Серія: {streak} {pluralDays(streak)}
+                Продовжуй у тому ж темпі!
               </Text>
             </View>
-            <Text
-              style={[styles.returnNote, { color: palette.subtleText }]}
-              maxFontSizeMultiplier={1.2}>
-              Повертайся завтра — серія продовжиться
-            </Text>
             <Pressable
               style={({ pressed }) => [
                 styles.btn,
@@ -129,6 +131,9 @@ const styles = StyleSheet.create({
     elevation: 30,
     width: 300,
   },
+  trophy: {
+    fontSize: 52,
+  },
   title: {
     fontSize: 22,
     fontWeight: '700',
@@ -139,17 +144,14 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     textAlign: 'center',
   },
-  statsRow: {
+  badge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
   },
-  statsText: {
+  badgeText: {
     fontSize: 13,
-  },
-  returnNote: {
-    fontSize: 12,
-    textAlign: 'center',
+    fontWeight: '500',
   },
   btn: {
     marginTop: 8,

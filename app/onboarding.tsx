@@ -15,14 +15,39 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { STORAGE_KEYS } from '@/constants/storage-keys';
 import { Blue, ButtonColors, Colors, Slate } from '@/constants/theme';
+import type { TargetLanguage } from '@/constants/words';
+import { LanguagePicker } from '@/components/language-picker';
 import { useAppTheme } from '@/contexts/theme-context';
 
 // Stable reference — never changes between renders, so FlatList never resets scroll
-const SLIDE_KEYS = ['intro', 'how', 'goal'] as const;
+const SLIDE_KEYS = ['language', 'intro', 'how', 'goal'] as const;
 type SlideKey = (typeof SLIDE_KEYS)[number];
 
 const GOALS = [10, 20, 50] as const;
 type Goal = (typeof GOALS)[number];
+
+// ─── Slide 0: Language Selection ─────────────────────────────────────────────
+
+function SlideLanguage({
+  isDark,
+  selected,
+  onSelect,
+}: {
+  isDark: boolean;
+  selected: TargetLanguage;
+  onSelect: (lang: TargetLanguage) => void;
+}) {
+  const palette = isDark ? Colors.dark : Colors.light;
+  return (
+    <View style={[styles.slide, { backgroundColor: palette.background }]}>
+      <Text style={[styles.slideTitle, { color: palette.text }]}>Яку мову вивчаємо?</Text>
+      <Text style={[styles.slideSubtitle, { color: isDark ? Blue[300] : Blue[700] }]}>
+        Обери мову, яку хочеш опанувати
+      </Text>
+      <LanguagePicker selected={selected} onSelect={onSelect} style={styles.langPicker} />
+    </View>
+  );
+}
 
 // ─── Slide 1 ────────────────────────────────────────────────────────────────
 
@@ -210,6 +235,11 @@ function SlideGoal({
           </Text>
         )}
       </Pressable>
+      <Text
+        style={[styles.privacyNote, { color: isDark ? Slate[500] : Slate[400] }]}
+        maxFontSizeMultiplier={1.2}>
+        🔒 Всі дані зберігаються лише на твоєму пристрої
+      </Text>
     </View>
   );
 }
@@ -237,6 +267,7 @@ export default function OnboardingScreen() {
   const listRef = useRef<FlatList>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedGoal, setSelectedGoal] = useState<Goal>(20);
+  const [selectedLanguage, setSelectedLanguage] = useState<TargetLanguage>('en');
   const [isFinishing, setIsFinishing] = useState(false);
 
   const goNext = () => {
@@ -252,6 +283,7 @@ export default function OnboardingScreen() {
       await Promise.all([
         AsyncStorage.setItem(STORAGE_KEYS.hasSeenOnboarding, 'true'),
         AsyncStorage.setItem(STORAGE_KEYS.dailyGoal, String(selectedGoal)),
+        AsyncStorage.setItem(STORAGE_KEYS.targetLanguage, selectedLanguage),
       ]);
     } catch (e) {
       console.warn('[onboarding] failed to save settings, proceeding with defaults', e);
@@ -261,7 +293,11 @@ export default function OnboardingScreen() {
 
   const renderSlide = ({ item }: { item: SlideKey }) => {
     let content;
-    if (item === 'intro') content = <SlideIntro isDark={isDark} />;
+    if (item === 'language')
+      content = (
+        <SlideLanguage isDark={isDark} selected={selectedLanguage} onSelect={setSelectedLanguage} />
+      );
+    else if (item === 'intro') content = <SlideIntro isDark={isDark} />;
     else if (item === 'how') content = <SlideHowItWorks isDark={isDark} />;
     else
       content = (
@@ -363,6 +399,10 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     lineHeight: 22,
   },
+  langPicker: {
+    marginTop: 16,
+    alignSelf: 'stretch',
+  },
   slideBody: {
     fontSize: 15,
     textAlign: 'center',
@@ -459,6 +499,11 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 17,
     fontWeight: '700',
+  },
+  privacyNote: {
+    fontSize: 12,
+    textAlign: 'center',
+    marginTop: 16,
   },
 
   // Chrome

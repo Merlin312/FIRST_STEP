@@ -191,7 +191,6 @@ npx expo lint
 ## Known Limitations / Tech Debt
 
 - Quiz score (`score`, `total` in `use-quiz.ts`) resets on app restart — not persisted to AsyncStorage yet
-- Swipe-to-open gesture not implemented on DrawerPanel (only ☰ button opens it)
 - No word categories/filtering yet (words.ts has no `category` field)
-- No celebration modal when daily goal is reached
-- Streak counts any answered word, not just correct ones
+- Streak correct-only mode available as a setting in DrawerPanel (default: off)
+- Milestone modal shown only once per milestone — no re-trigger after stats reset (by design)

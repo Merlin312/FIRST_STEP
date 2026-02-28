@@ -8,6 +8,9 @@
       "Bash(npx expo lint:*)",
       "Bash(npx eslint:*)",
       "Read(//c/Users/kia82/.claude/**)"
+    ],
+    "additionalDirectories": [
+      "C:\\Users\\kia82\\Documents\\projects\\first_step\\assets\\audio\\uk"
     ]
   }
 }

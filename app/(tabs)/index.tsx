@@ -18,6 +18,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 
 import { AnswerButton } from '@/components/answer-button';
 import { CelebrationModal } from '@/components/celebration-modal';
+import { MilestoneModal } from '@/components/milestone-modal';
 import { DrawerPanel } from '@/components/drawer-panel';
 import { ReminderBanner } from '@/components/reminder-banner';
 import { ThemedText } from '@/components/themed-text';
@@ -71,8 +72,16 @@ export default function HomeScreen() {
   const isDark = colorScheme === 'dark';
   const palette = isDark ? Colors.dark : Colors.light;
 
-  const { todayCount, dailyGoal, streak, lastActiveDate, addAnswer, reloadDailyGoal, isLoaded } =
-    useStatsContext();
+  const {
+    todayCount,
+    dailyGoal,
+    streak,
+    lastActiveDate,
+    totalCorrect,
+    addAnswer,
+    reloadDailyGoal,
+    isLoaded,
+  } = useStatsContext();
   const { horizontalPadding } = useDevice();
   const drawer = useDrawer();
   const { soundEnabled, speak, toggleSound } = useSound();
@@ -128,6 +137,10 @@ export default function HomeScreen() {
   const [showCelebration, setShowCelebration] = useState(false);
   const celebrationShownDateRef = useRef('');
 
+  const [milestoneCount, setMilestoneCount] = useState<number | null>(null);
+  const shownMilestonesRef = useRef<Set<number>>(new Set());
+  const milestoneLoadedRef = useRef(false);
+
   // Load persisted quiz settings on mount
   useEffect(() => {
     AsyncStorage.multiGet([
@@ -137,6 +150,7 @@ export default function HomeScreen() {
       STORAGE_KEYS.optionsCount,
       STORAGE_KEYS.quizDirection,
       STORAGE_KEYS.targetLanguage,
+      STORAGE_KEYS.milestonesShown,
     ])
       .then((entries) => {
         const get = (key: string) => entries.find(([k]) => k === key)?.[1];
@@ -146,14 +160,19 @@ export default function HomeScreen() {
         const opts = get(STORAGE_KEYS.optionsCount);
         const dir = get(STORAGE_KEYS.quizDirection);
         const tgt = get(STORAGE_KEYS.targetLanguage);
+        const ms = get(STORAGE_KEYS.milestonesShown);
         if (cat) setCategory(cat as WordCategory);
         if (adv !== null && adv !== undefined) setAutoAdvance(adv !== 'false');
         if (cel) celebrationShownDateRef.current = cel;
         if (opts === '4' || opts === '8') setOptionsCount(opts === '4' ? 4 : 8);
         setQuizDirection(normalizeDirection(dir));
         if (tgt === 'es' || tgt === 'de') setTargetLanguage(tgt);
+        if (ms) shownMilestonesRef.current = new Set(JSON.parse(ms) as number[]);
+        milestoneLoadedRef.current = true;
       })
-      .catch(() => {});
+      .catch(() => {
+        milestoneLoadedRef.current = true;
+      });
   }, []);
 
   const handleCategoryChange = useCallback(async (cat: WordCategory | undefined) => {
@@ -236,23 +255,46 @@ export default function HomeScreen() {
     return () => clearTimeout(timer);
   }, [todayCount, dailyGoal]);
 
+  // Show milestone modal when totalCorrect crosses a threshold for the first time
+  const MILESTONES = [10, 50, 100, 200, 300, 500] as const;
+  useEffect(() => {
+    if (!isLoaded || !milestoneLoadedRef.current || showCelebration) return;
+    for (const m of MILESTONES) {
+      if (totalCorrect >= m && !shownMilestonesRef.current.has(m)) {
+        shownMilestonesRef.current.add(m);
+        AsyncStorage.setItem(
+          STORAGE_KEYS.milestonesShown,
+          JSON.stringify([...shownMilestonesRef.current]),
+        ).catch(() => {});
+        setMilestoneCount(m);
+        break;
+      }
+    }
+    // MILESTONES is a stable const — intentionally omitted
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [totalCorrect, isLoaded, showCelebration]);
+
   // Reset double-tap guard whenever a new word is shown
   useEffect(() => {
     answeredRef.current = false;
   }, [currentWord]);
 
-  // Maps TargetLanguage to BCP-47 TTS code
+  // Maps TargetLanguage to BCP-47 TTS code for the TARGET word
   const ttsLang = (lang: TargetLanguage): string => {
     if (lang === 'es') return 'es-ES';
     if (lang === 'de') return 'de-DE';
+    if (lang === 'ua') return 'uk-UA';
     return 'en-US';
   };
+
+  // For Ukrainian word sets: target=Ukrainian, ua=English — so reverse TTS must use English
+  const ttsReverseLang = (lang: TargetLanguage): string => (lang === 'ua' ? 'en-US' : 'uk-UA');
 
   // Auto-pronounce whenever a new word appears — language depends on quiz direction
   useEffect(() => {
     if (!currentWord) return;
     if (quizDirection === 'reverse') {
-      speak(currentWord.ua, 'uk-UA');
+      speak(currentWord.ua, ttsReverseLang(targetLanguage));
     } else {
       speak(currentWord.target, ttsLang(targetLanguage));
     }
@@ -486,7 +528,7 @@ export default function HomeScreen() {
                 ]}
                 onPress={() =>
                   quizDirection === 'reverse'
-                    ? speak(currentWord.ua, 'uk-UA')
+                    ? speak(currentWord.ua, ttsReverseLang(targetLanguage))
                     : speak(currentWord.target, ttsLang(targetLanguage))
                 }
                 accessibilityLabel={s.pronounceA11y(
@@ -622,6 +664,13 @@ export default function HomeScreen() {
           visible={showCelebration}
           goal={dailyGoal}
           onDismiss={() => setShowCelebration(false)}
+        />
+
+        {/* Milestone celebration (10 / 50 / 100 / 200 / 300 / 500 correct words) */}
+        <MilestoneModal
+          visible={milestoneCount !== null}
+          milestone={milestoneCount}
+          onDismiss={() => setMilestoneCount(null)}
         />
       </SafeAreaView>
     </GestureDetector>
