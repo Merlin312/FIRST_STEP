@@ -51,6 +51,7 @@ export const de: AppStrings = {
   reminderTime: 'Erinnerungszeit',
   reminderDays: 'Wochentage',
   reminderDayLabels: ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'],
+  viewAllWords: 'Alle Wörter ansehen',
   viewTutorial: 'Tutorial ansehen',
   resetStats: 'Statistiken zurücksetzen',
   resetDialogTitle: 'Statistiken zurücksetzen',
@@ -66,6 +67,15 @@ export const de: AppStrings = {
   reminderTimeA11y: (t: string) => `Erinnerungszeit: ${t}`,
   reminderDayA11y: (label: string, active: boolean) =>
     `${label}: ${active ? 'aktiviert' : 'deaktiviert'}`,
+
+  // ─── Word list screen (words.tsx) ───────────────────────────────────────────
+  wordsScreenTitle: 'Wörter',
+  wordsKnownCount: (known: number, total: number) => `Kenne: ${known} / ${total}`,
+  wordsSearchPlaceholder: 'Suchen...',
+  wordsMarkKnown: 'Als bekannt markieren',
+  wordsMarkUnknown: 'Markierung entfernen',
+  wordsAllKnownEmpty:
+    'Alle Wörter sind als bekannt markiert.\nEntferne eine Markierung, um weiterzulernen.',
 
   // ─── Home screen (index.tsx) ─────────────────────────────────────────────────
   openMenu: 'Menü öffnen',

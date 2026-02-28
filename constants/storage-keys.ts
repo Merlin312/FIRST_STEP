@@ -36,4 +36,6 @@ export const STORAGE_KEYS = {
   appLanguage: 'appLanguage',
   /** Language being learned ('en' | 'es' | 'de'). Default: 'en'. */
   targetLanguage: 'targetLanguage',
+  /** Words the user has marked as already known (JSON array of "lang:target" strings). */
+  knownWords: 'knownWords',
 } as const;

@@ -120,9 +120,13 @@ export function useQuiz(
   optionsCount: 4 | 6 | 8 = 6,
   direction: QuizDirection = 'forward',
   targetLanguage: TargetLanguage = 'en',
+  knownWordTargets?: Set<string>,
 ) {
   const source = getWordSource(targetLanguage);
-  const wordPool = category ? (source.byCategory[category] ?? source.all) : source.all;
+  const basePool = category ? (source.byCategory[category] ?? source.all) : source.all;
+  const wordPool = knownWordTargets?.size
+    ? basePool.filter((w) => !knownWordTargets.has(w.target))
+    : basePool;
   const allWordsRef = useRef(source.all);
 
   // Keep pool reference stable for callbacks
@@ -131,6 +135,7 @@ export function useQuiz(
   const prevTargetLangRef = useRef(targetLanguage);
   const optionsCountRef = useRef(optionsCount);
   const directionRef = useRef(direction);
+  const prevKnownSizeRef = useRef(knownWordTargets?.size ?? 0);
 
   const [state, setState] = useState<State>(() =>
     createInitialState(wordPool, source.all, optionsCount, direction),
@@ -196,6 +201,30 @@ export function useQuiz(
       ),
     );
   }, [direction]);
+
+  // Reset quiz when known words set changes (words added/removed)
+  useEffect(() => {
+    const newSize = knownWordTargets?.size ?? 0;
+    if (newSize === prevKnownSizeRef.current) return;
+    prevKnownSizeRef.current = newSize;
+    const src = getWordSource(prevTargetLangRef.current);
+    const base = prevCategoryRef.current
+      ? (src.byCategory[prevCategoryRef.current] ?? src.all)
+      : src.all;
+    const filtered = knownWordTargets?.size
+      ? base.filter((w) => !knownWordTargets.has(w.target))
+      : base;
+    wordPoolRef.current = filtered;
+    setState(
+      createInitialState(
+        filtered,
+        allWordsRef.current,
+        optionsCountRef.current,
+        directionRef.current,
+      ),
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [knownWordTargets?.size]);
 
   const selectAnswer = useCallback((answer: string) => {
     setState((prev) => {

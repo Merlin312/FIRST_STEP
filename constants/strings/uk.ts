@@ -49,6 +49,7 @@ export interface AppStrings {
   reminderTime: string;
   reminderDays: string;
   reminderDayLabels: string[];
+  viewAllWords: string;
   viewTutorial: string;
   resetStats: string;
   resetDialogTitle: string;
@@ -63,6 +64,14 @@ export interface AppStrings {
   catA11y: (label: string) => string;
   reminderTimeA11y: (t: string) => string;
   reminderDayA11y: (label: string, active: boolean) => string;
+
+  // ─── Word list screen (words.tsx) ───────────────────────────────────────────
+  wordsScreenTitle: string;
+  wordsKnownCount: (known: number, total: number) => string;
+  wordsSearchPlaceholder: string;
+  wordsMarkKnown: string;
+  wordsMarkUnknown: string;
+  wordsAllKnownEmpty: string;
 
   // ─── Home screen (index.tsx) ─────────────────────────────────────────────────
   openMenu: string;
@@ -141,6 +150,7 @@ export const uk: AppStrings = {
   reminderTime: 'Час нагадування',
   reminderDays: 'Дні тижня',
   reminderDayLabels: ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'],
+  viewAllWords: 'Переглянути всі слова',
   viewTutorial: 'Переглянути туторіал',
   resetStats: 'Скинути статистику',
   resetDialogTitle: 'Скинути статистику',
@@ -155,6 +165,14 @@ export const uk: AppStrings = {
   catA11y: (label) => `Категорія: ${label}`,
   reminderTimeA11y: (t) => `Час нагадування: ${t}`,
   reminderDayA11y: (label, active) => `${label}: ${active ? 'увімкнено' : 'вимкнено'}`,
+
+  // ─── Word list screen (words.tsx) ───────────────────────────────────────────
+  wordsScreenTitle: 'Слова',
+  wordsKnownCount: (known, total) => `Знаю: ${known} / ${total}`,
+  wordsSearchPlaceholder: 'Пошук...',
+  wordsMarkKnown: 'Позначити як відоме',
+  wordsMarkUnknown: 'Зняти позначку',
+  wordsAllKnownEmpty: 'Всі слова позначені як відомі.\nЗніміть позначку, щоб продовжити навчання.',
 
   // ─── Home screen (index.tsx) ─────────────────────────────────────────────────
   openMenu: 'Відкрити меню',

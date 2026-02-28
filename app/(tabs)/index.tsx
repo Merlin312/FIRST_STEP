@@ -35,6 +35,7 @@ import { useStatsContext } from '@/contexts/stats-context';
 import { useLanguage } from '@/contexts/language-context';
 import { useDevice } from '@/hooks/use-device';
 import { useDrawer } from '@/hooks/use-drawer';
+import { useKnownWords } from '@/hooks/use-known-words';
 import { usePushReminders } from '@/hooks/use-push-reminders';
 import { useQuiz, normalizeDirection, type QuizDirection } from '@/hooks/use-quiz';
 import { useReminderSettings } from '@/hooks/use-reminder-settings';
@@ -49,6 +50,8 @@ export default function HomeScreen() {
   const [quizDirection, setQuizDirection] = useState<QuizDirection>('forward');
   const [targetLanguage, setTargetLanguage] = useState<TargetLanguage>('en');
 
+  const { knownTargets } = useKnownWords(targetLanguage);
+
   const {
     currentWord,
     options,
@@ -62,7 +65,7 @@ export default function HomeScreen() {
     skipWord,
     revealHint,
     resetQuiz,
-  } = useQuiz(category, optionsCount, quizDirection, targetLanguage);
+  } = useQuiz(category, optionsCount, quizDirection, targetLanguage, knownTargets);
 
   const { colorScheme } = useAppTheme();
   const isDark = colorScheme === 'dark';

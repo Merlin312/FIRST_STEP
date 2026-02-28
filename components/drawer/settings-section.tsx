@@ -171,6 +171,11 @@ export function SettingsSection({
     }
   };
 
+  const handleViewAllWords = () => {
+    onClose();
+    router.push('/words');
+  };
+
   const handleViewTutorial = () => {
     onClose();
     router.replace('/onboarding');
@@ -406,6 +411,26 @@ export function SettingsSection({
             </>
           )}
         </CollapsibleCard>
+
+        {/* ─── Всі слова ─── */}
+        <Pressable
+          style={({ pressed }) => [
+            styles.tutorialBtn,
+            { borderColor: isDark ? Blue[600] : Blue[400] },
+            pressed && { opacity: 0.7 },
+          ]}
+          onPress={handleViewAllWords}
+          accessibilityLabel={s.viewAllWords}
+          accessibilityRole="button">
+          <View style={styles.tutorialBtnInner}>
+            <MaterialIcons name="list" size={16} color={isDark ? Blue[300] : Blue[600]} />
+            <Text
+              style={[styles.tutorialBtnText, { color: isDark ? Blue[300] : Blue[600] }]}
+              maxFontSizeMultiplier={1.2}>
+              {s.viewAllWords}
+            </Text>
+          </View>
+        </Pressable>
 
         {/* ─── Туторіал ─── */}
         <Pressable
